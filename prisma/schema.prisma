@@ -4,9 +4,9 @@
 // Get a free hosted Postgres database in seconds: `npx create-db`
 
 generator client {
-  provider = "prisma-client"
-  output   = "../src/infrastructure/generated/prisma"
-  moduleFormat  = "cjs"
+  provider     = "prisma-client"
+  output       = "../src/infrastructure/generated/prisma"
+  moduleFormat = "cjs"
 }
 
 datasource db {
@@ -29,6 +29,21 @@ enum AccountStatus {
   SUSPENDED
 }
 
+enum ProductStatus {
+  DRAFT
+  ACTIVE
+  INACTIVE
+  ARCHIVED
+}
+
+enum CartStatus {
+  ACTIVE
+  CHECKING_OUT
+  COMPLETED
+  EXPIRED
+  ABANDONED
+}
+
 enum OrderStatus {
   PENDING
   CONFIRMED
@@ -45,7 +60,7 @@ enum ShippingStatus {
 
 enum PaymentMethod {
   COD
-  MOMO
+  ONLINE
 }
 
 enum PaymentStatus {
@@ -60,6 +75,27 @@ enum PaymentProvider {
   PAYPAL
 }
 
+enum LedgerAccountType {
+  PLATFORM_MAIN
+  PLATFORM_FEE
+  BUYER_WALLET
+  SELLER_BALANCE
+  SELLER_AVAILABLE
+}
+
+enum LedgerEntryType {
+  DEBIT
+  CREDIT
+}
+
+enum LedgerEntryCategory {
+  PAYMENT
+  PAYOUT
+  REFUND
+  FEE
+  ADJUSTMENT
+}
+
 enum NotificationType {
   ORDER
   PAYMENT
@@ -71,6 +107,47 @@ enum PayoutStatus {
   PENDING
   PAID
   FAILED
+}
+
+// 
+// BankAccount
+//
+
+model BankAccount {
+  id     String @id @default(uuid())
+  userId String
+
+  bankName    String
+  accountNo   String
+  accountName String
+
+  isDefault Boolean @default(false)
+
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+}
+
+model Payout {
+  id String @id @default(uuid())
+
+  userId String
+  amount Decimal @db.Decimal(14, 2)
+
+  status PayoutStatus
+  method String?
+
+  reference String?
+
+  createdAt DateTime  @default(now())
+  paidAt    DateTime?
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([status])
 }
 
 //
@@ -223,14 +300,16 @@ model Shop {
 //
 
 model Category {
-  id       String  @id @default(uuid())
-  name     String
+  id   String @id @default(uuid())
+  name String
+  slug String @unique
+
   parentId String?
+  parent   Category?  @relation("CategoryTree", fields: [parentId], references: [id])
+  children Category[] @relation("CategoryTree")
 
-  parent   Category?  @relation("CategoryToCategory", fields: [parentId], references: [id])
-  children Category[] @relation("CategoryToCategory")
-
-  products Product[]
+  createdAt DateTime  @default(now())
+  products  Product[]
 
   @@map("categories")
 }
@@ -243,64 +322,76 @@ model Product {
   id          String  @id @default(uuid())
   shopId      String
   name        String
+  slug        String  @unique
   description String?
-  categoryId  String?
 
-  hasVariants Boolean
-  price       Decimal? @db.Decimal(12, 2) // dùng khi không có variant
+  categoryId String?
+
+  minPrice   Decimal? @db.Decimal(12, 2)
+  maxPrice   Decimal? @db.Decimal(12, 2)
+  totalStock Int      @default(0)
 
   avgRating    Float?
   totalReviews Int    @default(0)
 
+  status ProductStatus @default(DRAFT)
+
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
   deletedAt DateTime?
-  isDeleted Boolean   @default(false)
 
   shop     Shop             @relation(fields: [shopId], references: [id])
   category Category?        @relation(fields: [categoryId], references: [id])
   variants ProductVariant[]
   reviews  Review[]
 
-  @@index([categoryId])
+  @@index([name])
+  @@index([minPrice, maxPrice])
   @@index([shopId])
+  @@index([categoryId])
+  @@index([status])
   @@index([createdAt])
-  @@index([isDeleted])
   @@map("products")
 }
 
 model ProductVariant {
-  id         String  @id @default(uuid())
-  productId  String
-  sku        String  @unique
+  id        String @id @default(uuid())
+  productId String
+
+  sku  String @unique
+  name String
+
   price      Decimal @db.Decimal(12, 2)
   attributes Json?
 
+  isActive Boolean @default(true)
+
   createdAt DateTime @default(now())
 
-  product    Product     @relation(fields: [productId], references: [id])
-  inventory  Inventory?
+  product   Product    @relation(fields: [productId], references: [id])
+  inventory Inventory?
+
   cartItems  CartItem[]
   orderItems OrderItem[]
 
+  @@index([productId])
   @@map("product_variants")
 }
 
 model Inventory {
   variantId String @id
-  available Int    @default(0)
-  reserved  Int    @default(0)
-  sold      Int    @default(0)
-  version   Int    @default(0)
 
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-  deletedAt DateTime?
-  isDeleted Boolean   @default(false)
+  stock    Int
+  reserved Int @default(0)
+  sold     Int @default(0)
+
+  version Int @default(0)
+
+  updatedAt DateTime @updatedAt
 
   variant ProductVariant @relation(fields: [variantId], references: [id])
 
-  @@index([available])
+  @@index([stock])
   @@map("inventories")
 }
 
@@ -309,30 +400,30 @@ model Inventory {
 //
 
 model Cart {
-  id     String @id @default(uuid())
-  userId String @unique
+  id     String     @id @default(uuid())
+  userId String?    @unique
+  status CartStatus @default(ACTIVE)
 
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-  deletedAt DateTime?
-  isDeleted Boolean   @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  user  User       @relation(fields: [userId], references: [id])
-  items CartItem[]
+  user      User?      @relation(fields: [userId], references: [id])
+  items     CartItem[]
+  expiresAt DateTime?
 
+  @@index([userId])
   @@map("carts")
 }
 
 model CartItem {
-  id        String @id @default(uuid())
+  id        String  @id @default(uuid())
   cartId    String
   variantId String
   quantity  Int
+  price     Decimal @db.Decimal(12, 2)
 
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-  deletedAt DateTime?
-  isDeleted Boolean   @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   cart    Cart           @relation(fields: [cartId], references: [id])
   variant ProductVariant @relation(fields: [variantId], references: [id])
@@ -347,11 +438,13 @@ model CartItem {
 //
 
 model Order {
-  id         String      @id @default(uuid())
-  userId     String?
-  status     OrderStatus @default(PENDING)
-  totalPrice Decimal     @db.Decimal(12, 2)
-  addressId  String?
+  id            String        @id @default(uuid())
+  userId        String
+  shopId        String
+  status        OrderStatus   @default(PENDING)
+  totalPrice    Decimal       @db.Decimal(12, 2)
+  addressId     String?
+  paymentStatus PaymentStatus @default(PENDING)
 
   confirmedAt DateTime?
   shippedAt   DateTime?
@@ -362,29 +455,31 @@ model Order {
   deletedAt DateTime?
   isDeleted Boolean   @default(false)
 
-  user     User?       @relation(fields: [userId], references: [id])
-  address  Address?    @relation(fields: [addressId], references: [id])
-  items    OrderItem[]
-  payment  Payment?
-  shipping Shipping?
+  user         User?         @relation(fields: [userId], references: [id])
+  address      Address?      @relation(fields: [addressId], references: [id])
+  items        OrderItem[]
+  shipping     Shipping?
+  paymentItems PaymentItem[]
 
   @@index([userId])
+  @@index([shopId])
   @@map("orders")
 }
 
 model OrderItem {
   id        String  @id @default(uuid())
   orderId   String
+  shopId    String
   variantId String
-  shopId    String?
+  price     Decimal @db.Decimal(12, 2)
+  quantity  Int
 
-  productName String?
-  price       Decimal @db.Decimal(12, 2)
-  quantity    Int
-
-  attributes   Json?
+  productName  String
+  variantName  String
+  sku          String
   productImage String?
-  skuSnapshot  String?
+
+  attributes Json?
 
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
@@ -393,7 +488,7 @@ model OrderItem {
 
   order   Order          @relation(fields: [orderId], references: [id])
   variant ProductVariant @relation(fields: [variantId], references: [id])
-  shop    Shop?          @relation(fields: [shopId], references: [id])
+  shop    Shop           @relation(fields: [shopId], references: [id])
 
   @@index([orderId])
   @@index([variantId])
@@ -405,24 +500,79 @@ model OrderItem {
 //
 
 model Payment {
-  id             String          @id @default(uuid())
-  orderId        String          @unique
-  method         PaymentMethod
+  id             String           @id @default(uuid())
+  userId         String
+  amount         Decimal          @db.Decimal(12, 2)
+  currency       String           @default("VND")
   status         PaymentStatus
-  provider       PaymentProvider
-  transactionId  String?
-  idempotencyKey String?         @unique
-  amount         Decimal         @db.Decimal(12, 2)
-  rawResponse    Json?
+  method         PaymentMethod
+  provider       PaymentProvider?
+  providerRef    String?
+  idempotencyKey String?          @unique
 
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
   deletedAt DateTime?
   isDeleted Boolean   @default(false)
 
-  order Order @relation(fields: [orderId], references: [id])
+  items PaymentItem[]
 
+  @@index([userId])
+  @@index([status])
+  @@index([providerRef])
   @@map("payments")
+}
+
+model PaymentItem {
+  id String @id @default(uuid())
+
+  paymentId String
+  orderId   String
+
+  amount Decimal @db.Decimal(12, 2)
+
+  payment Payment @relation(fields: [paymentId], references: [id])
+  order   Order   @relation(fields: [orderId], references: [id])
+
+  @@unique([paymentId, orderId])
+  @@index([orderId])
+  @@map("payment_items")
+}
+
+//
+// LEDGER
+//
+
+model LedgerAccount {
+  id      String            @id @default(uuid())
+  ownerId String?
+  type    LedgerAccountType
+
+  balance Decimal @default(0) @db.Decimal(14, 2)
+
+  createdAt DateTime @default(now())
+
+  @@unique([ownerId, type])
+  @@index([ownerId])
+  @@index([type])
+  @@map("ledger_accounts")
+}
+
+model LedgerEntry {
+  id            String              @id @default(uuid())
+  accountId     String
+  amount        Decimal             @db.Decimal(14, 2)
+  type          LedgerEntryType
+  reference     String
+  transactionId String
+  category      LedgerEntryCategory
+
+  createdAt DateTime @default(now())
+
+  @@index([accountId])
+  @@index([transactionId])
+  @@index([reference])
+  @@map("ledger_entry")
 }
 
 //
@@ -441,45 +591,6 @@ model Shipping {
   order Order @relation(fields: [orderId], references: [id])
 
   @@map("shippings")
-}
-
-//
-// BANK & PAYOUT
-//
-
-model BankAccount {
-  id            String  @id @default(uuid())
-  userId        String
-  bankName      String
-  accountNumber String
-  accountHolder String
-  isVerified    Boolean @default(false)
-
-  payouts Payout[]
-
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-  deletedAt DateTime?
-  isDeleted Boolean   @default(false)
-
-  user User @relation(fields: [userId], references: [id])
-
-  @@map("bank_accounts")
-}
-
-model Payout {
-  id            String       @id @default(uuid())
-  sellerId      String
-  bankAccountId String
-  amount        Decimal?     @db.Decimal(12, 2)
-  status        PayoutStatus
-
-  createdAt DateTime @default(now())
-
-  seller      User        @relation(fields: [sellerId], references: [id])
-  bankAccount BankAccount @relation(fields: [bankAccountId], references: [id])
-
-  @@map("payouts")
 }
 
 //
@@ -574,10 +685,18 @@ model Notification {
 //
 
 model AuditLog {
-  id        String   @id @default(uuid())
+  id        String  @id @default(uuid())
   entity    String
   entityId  String
   action    String
-  data      Json?
+  actorId   String?
+  actorType String?
+  before    Json?
+  after     Json?
+  metadata  Json?
+
   createdAt DateTime @default(now())
+
+  @@index([entity, entityId])
+  @@index([actorId])
 }
