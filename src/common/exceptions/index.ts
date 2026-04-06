@@ -4,6 +4,7 @@ import {
   ForbiddenException,
   UnauthorizedException,
   ConflictException,
+  NotFoundException,
 } from '@nestjs/common';
 
 // ===== Base Exception =====
@@ -50,6 +51,14 @@ export class ResourceAlreadyExistsException extends ConflictException {
       field
         ? `${resource} with ${field} already exists`
         : `${resource} already exists`,
+    );
+  }
+}
+
+export class ResourceNotFoundException extends NotFoundException {
+  constructor(resource: string, id?: string) {
+    super(
+      id ? `${resource} with id"${id}" not exists` : `${resource} not exists`,
     );
   }
 }

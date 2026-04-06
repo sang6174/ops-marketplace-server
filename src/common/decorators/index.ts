@@ -5,6 +5,7 @@ import {
   SetMetadata,
 } from '@nestjs/common';
 import { Request } from 'express';
+import { UserRole } from '@infrastructure/generated/prisma/enums';
 
 // ===== Metadata keys =====
 export const IS_PUBLIC_KEY = 'isPublic' as const;
@@ -19,6 +20,11 @@ export const GetUser = createParamDecorator(
     const request = ctx.switchToHttp().getRequest<Request>();
     const user = request.user as Record<string, unknown>;
 
+    console.log(data);
+
     return data ? user?.[data] : user;
   },
 );
+
+// ===== @Roles)() =====
+export const Roles = (...roles: UserRole[]) => SetMetadata(ROLES_KEY, roles);

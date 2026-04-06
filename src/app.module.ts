@@ -10,6 +10,7 @@ import { TransformInterceptor } from '@common/interceptors/transform.interceptor
 import { LoggingInterceptor } from '@common/interceptors/logging.interceptor';
 
 import { AuthModule } from '@modules/auth/auth.module';
+import { UsersModule } from './modules/user/users.module';
 
 @Module({
   imports: [
@@ -21,6 +22,7 @@ import { AuthModule } from '@modules/auth/auth.module';
 
     PrismaModule,
     AuthModule,
+    UsersModule,
   ],
 
   providers: [
