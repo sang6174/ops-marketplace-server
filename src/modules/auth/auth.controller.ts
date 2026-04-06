@@ -40,7 +40,6 @@ export class AuthController {
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
   ) {
-    console.log(dto);
     const result = await this.authService.login(dto, {
       userAgent: req.headers['user-agent'],
       ipAddress: req.ip,
@@ -101,7 +100,6 @@ export class AuthController {
     @GetUser() user: AuthUser,
     @Res({ passthrough: true }) res: Response,
   ) {
-    console.log(user);
     const result = await this.authService.logout(user);
     this.authService.logout(user);
 

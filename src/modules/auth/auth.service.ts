@@ -144,8 +144,7 @@ export class AuthService {
     });
   }
 
-  // ── Internal helpers ───────────────────────────────────────────────────────
-
+  // ===== Internal helpers =====
   private async generateTokensAndSession(
     userId: string,
     email: string,
