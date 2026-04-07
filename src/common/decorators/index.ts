@@ -20,11 +20,9 @@ export const GetUser = createParamDecorator(
     const request = ctx.switchToHttp().getRequest<Request>();
     const user = request.user as Record<string, unknown>;
 
-    console.log(data);
-
     return data ? user?.[data] : user;
   },
 );
 
-// ===== @Roles)() =====
+// ===== @Roles() =====
 export const Roles = (...roles: UserRole[]) => SetMetadata(ROLES_KEY, roles);

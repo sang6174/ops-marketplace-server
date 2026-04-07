@@ -52,7 +52,6 @@ export class AuthController {
       maxAge: parseInt(process.env.JWT_REFRESH_EXPIRES_IN_SECONDS!),
     });
 
-    console.log(result);
     return {
       user: result.user,
       accessToken: result.accessToken,
