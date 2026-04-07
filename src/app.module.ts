@@ -12,6 +12,7 @@ import { LoggingInterceptor } from '@common/interceptors/logging.interceptor';
 import { AuthModule } from '@modules/auth/auth.module';
 import { UsersModule } from './modules/user/users.module';
 import { ShopsModule } from './modules/shop/shops.module';
+import { ProductsModule } from './modules/product/products.module';
 
 @Module({
   imports: [
@@ -25,6 +26,7 @@ import { ShopsModule } from './modules/shop/shops.module';
     AuthModule,
     UsersModule,
     ShopsModule,
+    ProductsModule,
   ],
 
   providers: [
