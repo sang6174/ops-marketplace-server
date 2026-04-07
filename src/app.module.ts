@@ -13,6 +13,7 @@ import { AuthModule } from '@modules/auth/auth.module';
 import { UsersModule } from './modules/user/users.module';
 import { ShopsModule } from './modules/shop/shops.module';
 import { ProductsModule } from './modules/product/products.module';
+import { CategoriesModule } from './modules/category/categories.module';
 
 @Module({
   imports: [
@@ -27,6 +28,7 @@ import { ProductsModule } from './modules/product/products.module';
     UsersModule,
     ShopsModule,
     ProductsModule,
+    CategoriesModule,
   ],
 
   providers: [
