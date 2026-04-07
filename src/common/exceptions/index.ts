@@ -62,3 +62,17 @@ export class ResourceNotFoundException extends NotFoundException {
     );
   }
 }
+
+// ===== Shop =====
+
+export class ShopAlreadyExistsException extends ConflictException {
+  constructor() {
+    super('Bạn đã có shop, mỗi người dùng chỉ được tạo 1 shop');
+  }
+}
+
+export class NotShopOwnerException extends ForbiddenException {
+  constructor() {
+    super('Bạn không có quyền thực hiện thao tác này trên shop');
+  }
+}

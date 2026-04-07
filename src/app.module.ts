@@ -11,6 +11,7 @@ import { LoggingInterceptor } from '@common/interceptors/logging.interceptor';
 
 import { AuthModule } from '@modules/auth/auth.module';
 import { UsersModule } from './modules/user/users.module';
+import { ShopsModule } from './modules/shop/shops.module';
 
 @Module({
   imports: [
@@ -23,6 +24,7 @@ import { UsersModule } from './modules/user/users.module';
     PrismaModule,
     AuthModule,
     UsersModule,
+    ShopsModule,
   ],
 
   providers: [
