@@ -63,6 +63,7 @@ export class UsersController {
 
   // GET /users  (admin only)
   @Get()
+  @UseGuards(JwtAuthGuard)
   @Roles(UserRole.ADMIN)
   @ApiOperation({ summary: '[Admin] Danh sách users' })
   findAll(@Query() dto: QueryUsersDto) {
@@ -71,6 +72,7 @@ export class UsersController {
 
   // PATCH /users/:id/status  (admin only)
   @Patch(':id/status')
+  @UseGuards(JwtAuthGuard)
   @Roles(UserRole.ADMIN)
   @ApiOperation({ summary: '[Admin] Cập nhật trạng thái user' })
   updateStatus(@Param('id') id: string, @Body('status') status: AccountStatus) {
