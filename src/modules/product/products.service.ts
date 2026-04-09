@@ -17,6 +17,17 @@ export class ProductsService {
     const shopId = await this.getShopId(userId);
 
     return this.prisma.$transaction(async (tx) => {
+      if (dto.categoryIds?.length) {
+        const categories = await tx.category.findMany({
+          where: { id: { in: dto.categoryIds } },
+          select: { id: true },
+        });
+
+        if (categories.length !== dto.categoryIds.length) {
+          throw new Error('Invalid categoryIds');
+        }
+      }
+
       const product = await tx.product.create({
         data: {
           shopId,
