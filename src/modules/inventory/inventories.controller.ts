@@ -1,5 +1,4 @@
 // src/modules/inventory/inventories.controller.ts
-
 import {
   Body,
   Controller,
@@ -13,7 +12,7 @@ import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '@modules/auth/guards';
 import { Public } from '@common/decorators';
 import { InventoryService } from './inventories.service';
-import { AdjustInventoryDto, QueryInventoryDto } from './dtos/inventory.dto';
+import { ModifyInventoryDto, QueryInventoryDto } from './dtos/inventory.dto';
 
 @ApiTags('Inventory')
 @Controller('inventory')
@@ -40,7 +39,7 @@ export class InventoryController {
   @ApiOperation({ summary: 'Adjust inventory counts for a variant' })
   adjustInventory(
     @Param('variantId') variantId: string,
-    @Body() dto: AdjustInventoryDto,
+    @Body() dto: ModifyInventoryDto,
   ) {
     return this.inventoryService.adjustInventory(variantId, dto);
   }

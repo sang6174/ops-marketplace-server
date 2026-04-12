@@ -11,7 +11,8 @@ import {
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { UserRole } from '@infrastructure/generated/prisma/enums';
-import { GetUser, Public, Roles } from '@common/decorators';
+import { GetUser, Public, Roles, Permissions } from '@common/decorators';
+import { Permission } from '@common/constants/permissions';
 import { AuthUser } from '@modules/auth/dtos/auth.dto';
 import { ShopsService } from './shops.service';
 import { ProductsService } from '../product/products.service';
@@ -37,6 +38,7 @@ export class ShopsController {
   @Post()
   @UseGuards(JwtAuthGuard)
   @Roles(UserRole.SELLER)
+  @Permissions(Permission.SHOP_CREATE)
   @ApiBearerAuth('JWT')
   @ApiOperation({ summary: '[Seller] Tạo shop' })
   create(@GetUser() user: AuthUser, @Body() dto: CreateShopDto) {
@@ -57,6 +59,7 @@ export class ShopsController {
   @Patch('me')
   @UseGuards(JwtAuthGuard)
   @Roles(UserRole.SELLER)
+  @Permissions(Permission.SHOP_UPDATE)
   @ApiBearerAuth('JWT')
   @ApiOperation({ summary: '[Seller] Cập nhật shop' })
   update(@GetUser() user: AuthUser, @Body() dto: UpdateShopDto) {
@@ -67,6 +70,7 @@ export class ShopsController {
   @Post('me/product')
   @UseGuards(JwtAuthGuard)
   @Roles(UserRole.SELLER)
+  @Permissions(Permission.PRODUCT_CREATE)
   @ApiBearerAuth('JWT')
   @ApiOperation({ summary: '[Selller] tạo sản phẩm mới' })
   createProduct(@GetUser() user: AuthUser, @Body() dto: CreateProductDto) {
@@ -77,6 +81,7 @@ export class ShopsController {
   @Patch('me/products/:id')
   @UseGuards(JwtAuthGuard)
   @Roles(UserRole.SELLER)
+  @Permissions(Permission.PRODUCT_UPDATE)
   @ApiBearerAuth('JWT')
   @ApiOperation({ summary: '[Selller] chỉnh sủa sản phẩm' })
   updateProduct(
@@ -91,6 +96,7 @@ export class ShopsController {
   @Patch('me/products/:id')
   @UseGuards(JwtAuthGuard)
   @Roles(UserRole.SELLER)
+  @Permissions(Permission.PRODUCT_UPDATE)
   @ApiBearerAuth('JWT')
   @ApiOperation({ summary: '[Selller] tạm xóa sản phẩm' })
   archiveProduct(@GetUser() user: AuthUser, @Param('id') id: string) {
@@ -101,6 +107,7 @@ export class ShopsController {
   @Patch('me/products/:id')
   @UseGuards(JwtAuthGuard)
   @Roles(UserRole.SELLER)
+  @Permissions(Permission.PRODUCT_UPDATE)
   @ApiBearerAuth('JWT')
   @ApiOperation({ summary: '[Selller] mở bán sản phẩm' })
   publishProduct(@GetUser() user: AuthUser, @Param('id') id: string) {
@@ -111,6 +118,7 @@ export class ShopsController {
   @Post('me/products/:id/variants')
   @UseGuards(JwtAuthGuard)
   @Roles(UserRole.SELLER)
+  @Permissions(Permission.PRODUCT_UPDATE)
   @ApiBearerAuth('JWT')
   @ApiOperation({ summary: '[Selller] thêm biến thể của sản phẩm' })
   addVariant(
@@ -125,6 +133,7 @@ export class ShopsController {
   @Patch('me/products/:id/variants/:vid')
   @UseGuards(JwtAuthGuard)
   @Roles(UserRole.SELLER)
+  @Permissions(Permission.PRODUCT_UPDATE)
   @ApiBearerAuth('JWT')
   @ApiOperation({ summary: '[Selller] chỉnh sủa biến thể của sản phẩm' })
   updateVariant(
@@ -140,6 +149,7 @@ export class ShopsController {
   @Patch('me/products/:id/variant/:vid')
   @UseGuards(JwtAuthGuard)
   @Roles(UserRole.SELLER)
+  @Permissions(Permission.PRODUCT_UPDATE)
   @ApiBearerAuth('JWT')
   @ApiOperation({ summary: '[Selller] tạm xóa biến thể của sản phẩm' })
   deleteVariant(
@@ -154,6 +164,7 @@ export class ShopsController {
   @Patch('me/products/:id/variants/:vid/inventory')
   @UseGuards(JwtAuthGuard)
   @Roles(UserRole.SELLER)
+  @Permissions(Permission.INVENTORY_UPDATE)
   @ApiBearerAuth('JWT')
   @ApiOperation({ summary: '[Selller] chỉnh sủa sản phẩm' })
   adjustInventory(

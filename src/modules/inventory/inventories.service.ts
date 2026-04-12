@@ -3,7 +3,7 @@ import { BadRequestException, Injectable } from '@nestjs/common';
 import { PrismaService } from '@infrastructure/prisma/prisma.service';
 import { toPrismaPage } from '@common/utils';
 import { ResourceNotFoundException } from '@common/exceptions';
-import { AdjustInventoryDto, QueryInventoryDto } from './dtos/inventory.dto';
+import { ModifyInventoryDto, QueryInventoryDto } from './dtos/inventory.dto';
 
 @Injectable()
 export class InventoryService {
@@ -66,7 +66,7 @@ export class InventoryService {
     return inventory;
   }
 
-  async adjustInventory(variantId: string, dto: AdjustInventoryDto) {
+  async adjustInventory(variantId: string, dto: ModifyInventoryDto) {
     if (
       dto.stockDelta === undefined &&
       dto.reservedDelta === undefined &&

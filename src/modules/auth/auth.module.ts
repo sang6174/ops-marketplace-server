@@ -7,12 +7,19 @@ import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { JwtAccessStrategy } from './strategies/jwt-access.strategy';
 import { JwtRefreshStrategy } from './strategies/jwt-refresh.strategy';
+import { JwtAuthGuard, RefreshTokenGuard } from './guards';
 import { PrismaModule } from '@infrastructure/prisma/prisma.module';
 
 @Module({
   imports: [PassportModule, JwtModule.register({}), PrismaModule],
   controllers: [AuthController],
-  providers: [AuthService, JwtAccessStrategy, JwtRefreshStrategy],
-  exports: [AuthService],
+  providers: [
+    AuthService,
+    JwtAccessStrategy,
+    JwtRefreshStrategy,
+    JwtAuthGuard,
+    RefreshTokenGuard,
+  ],
+  exports: [AuthService, JwtAuthGuard, RefreshTokenGuard],
 })
 export class AuthModule {}

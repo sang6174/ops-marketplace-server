@@ -12,7 +12,8 @@ import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards';
 import { CategoriesService } from './categories.service';
 import { CreateCategoryDto, UpdateCategoryDto } from './dtos/categories.dto';
-import { Public, Roles } from '@/common/decorators';
+import { Public, Roles, Permissions } from '@/common/decorators';
+import { Permission } from '@/common/constants/permissions';
 import { UserRole } from '@/infrastructure/generated/prisma/enums';
 
 @ApiTags('Categories')
@@ -38,18 +39,27 @@ export class CategoriesController {
   @Post()
   @UseGuards(JwtAuthGuard)
   @Roles(UserRole.ADMIN)
+  @Permissions(Permission.CATEGORY_CREATE)
   @ApiOperation({ summary: '' })
   createCategory(@Body() dto: CreateCategoryDto) {
     return this.service.createCategory(dto);
   }
 
   @Patch(':id')
+  @UseGuards(JwtAuthGuard)
+  @Roles(UserRole.ADMIN)
+  @Permissions(Permission.CATEGORY_UPDATE)
+  @ApiBearerAuth('JWT')
   @ApiOperation({ summary: '' })
   updateCategory(@Param('id') id: string, @Body() dto: UpdateCategoryDto) {
     return this.service.updateCategory(id, dto);
   }
 
   @Delete(':id')
+  @UseGuards(JwtAuthGuard)
+  @Roles(UserRole.ADMIN)
+  @Permissions(Permission.CATEGORY_DELETE)
+  @ApiBearerAuth('JWT')
   @ApiOperation({ summary: '' })
   deleteCategory(@Param('id') id: string) {
     return this.service.deleteCategory(id);

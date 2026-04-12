@@ -34,7 +34,7 @@ export class QueryInventoryDto {
   shopId?: string;
 }
 
-export class AdjustInventoryDto {
+export class ModifyInventoryDto {
   @ApiPropertyOptional({ example: 10 })
   @Type(() => Number)
   @IsOptional()

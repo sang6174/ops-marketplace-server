@@ -75,6 +75,10 @@ export class RolesAndPermissionsGuard implements CanActivate {
       return true;
     }
 
+    if (roles.length === 0) {
+      return false;
+    }
+
     const rolePermissions = await this.prisma.rolePermission.findMany({
       where: {
         role: {

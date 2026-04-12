@@ -12,7 +12,8 @@ import {
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { UserRole } from '@infrastructure/generated/prisma/enums';
-import { GetUser, Roles } from '@common/decorators';
+import { GetUser, Roles, Permissions } from '@common/decorators';
+import { Permission } from '@common/constants/permissions';
 import { AuthUser } from '@modules/auth/dtos/auth.dto';
 import { JwtAuthGuard } from '../auth/guards';
 import { OrdersService } from './orders.service';
@@ -63,6 +64,7 @@ export class OrdersController {
   @Patch(':id/status')
   @UseGuards(JwtAuthGuard)
   @Roles(UserRole.SELLER)
+  @Permissions(Permission.ORDER_UPDATE)
   @ApiBearerAuth('JWT')
   @ApiOperation({ summary: '[Seller] Update order status' })
   updateOrderStatus(
@@ -76,6 +78,7 @@ export class OrdersController {
   @Patch(':id/payment-status')
   @UseGuards(JwtAuthGuard)
   @Roles(UserRole.SELLER)
+  @Permissions(Permission.PAYMENT_UPDATE)
   @ApiBearerAuth('JWT')
   @ApiOperation({ summary: '[Seller] Update payment status' })
   updatePaymentStatus(
@@ -88,6 +91,7 @@ export class OrdersController {
   @Get('shops/me')
   @UseGuards(JwtAuthGuard)
   @Roles(UserRole.SELLER)
+  @Permissions(Permission.ORDER_READ)
   @ApiBearerAuth('JWT')
   @ApiOperation({ summary: '[Seller] List shop orders' })
   listShopOrders(@GetUser() user: AuthUser, @Query() dto: QueryOrdersDto) {
@@ -97,6 +101,7 @@ export class OrdersController {
   @Get('shops/me/:id')
   @UseGuards(JwtAuthGuard)
   @Roles(UserRole.SELLER)
+  @Permissions(Permission.ORDER_READ)
   @ApiBearerAuth('JWT')
   @ApiOperation({ summary: '[Seller] Get shop order details' })
   getShopOrder(@GetUser() user: AuthUser, @Param('id') orderId: string) {

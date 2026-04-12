@@ -15,7 +15,8 @@ import {
   AccountStatus,
   UserRole,
 } from '@infrastructure/generated/prisma/enums';
-import { GetUser, Roles } from '@common/decorators';
+import { GetUser, Roles, Permissions } from '@common/decorators';
+import { Permission } from '@common/constants/permissions';
 import { AuthUser } from '@modules/auth/dtos/auth.dto';
 import { UsersService } from './users.service';
 import { UpdateProfileDto, ChangePasswordDto, QueryUsersDto } from './dto';
@@ -65,6 +66,7 @@ export class UsersController {
   @Get()
   @UseGuards(JwtAuthGuard)
   @Roles(UserRole.ADMIN)
+  @Permissions(Permission.USER_READ)
   @ApiOperation({ summary: '[Admin] Danh sách users' })
   findAll(@Query() dto: QueryUsersDto) {
     return this.usersService.findAll(dto);
@@ -74,6 +76,7 @@ export class UsersController {
   @Patch(':id/status')
   @UseGuards(JwtAuthGuard)
   @Roles(UserRole.ADMIN)
+  @Permissions(Permission.USER_UPDATE)
   @ApiOperation({ summary: '[Admin] Cập nhật trạng thái user' })
   updateStatus(@Param('id') id: string, @Body('status') status: AccountStatus) {
     return this.usersService.updateStatus(id, status);
