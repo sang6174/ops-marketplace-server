@@ -19,6 +19,7 @@ import { AddressesModule } from './modules/address/addresses.module';
 import { OrdersModule } from './modules/order/orders.module';
 import { PaymentsModule } from './modules/payment/payments.module';
 import { InventoryModule } from './modules/inventory/inventories.module';
+import { PayoutsModule } from './modules/payout/payouts.module';
 
 @Module({
   imports: [
@@ -39,6 +40,7 @@ import { InventoryModule } from './modules/inventory/inventories.module';
     OrdersModule,
     PaymentsModule,
     InventoryModule,
+    PayoutsModule,
   ],
 
   providers: [
