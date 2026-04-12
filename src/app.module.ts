@@ -1,7 +1,7 @@
 // src/app.module.ts
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
-import { APP_FILTER, APP_INTERCEPTOR } from '@nestjs/core';
+import { APP_FILTER, APP_INTERCEPTOR, APP_GUARD } from '@nestjs/core';
 
 import { appConfig, jwtConfig, databaseConfig } from './configs/index';
 import { PrismaModule } from '@infrastructure/prisma/prisma.module';
@@ -9,6 +9,7 @@ import { GlobalExceptionFilter } from '@common/filters/global-exception.filter';
 import { TransformInterceptor } from '@common/interceptors/transform.interceptor';
 import { LoggingInterceptor } from '@common/interceptors/logging.interceptor';
 
+import { RolesAndPermissionsGuard } from '@modules/auth/guards';
 import { AuthModule } from '@modules/auth/auth.module';
 import { UsersModule } from './modules/user/users.module';
 import { ShopsModule } from './modules/shop/shops.module';
@@ -57,6 +58,10 @@ import { LedgerModule } from './modules/ledger/ledger.module';
     {
       provide: APP_INTERCEPTOR,
       useClass: TransformInterceptor,
+    },
+    {
+      provide: APP_GUARD,
+      useClass: RolesAndPermissionsGuard,
     },
   ],
 })

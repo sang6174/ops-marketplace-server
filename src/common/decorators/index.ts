@@ -10,6 +10,7 @@ import { UserRole } from '@infrastructure/generated/prisma/enums';
 // ===== Metadata keys =====
 export const IS_PUBLIC_KEY = 'isPublic' as const;
 export const ROLES_KEY = 'roles' as const;
+export const PERMISSIONS_KEY = 'permissions' as const;
 
 // ===== @Public() =====
 export const Public = () => SetMetadata(IS_PUBLIC_KEY, true);
@@ -26,3 +27,7 @@ export const GetUser = createParamDecorator(
 
 // ===== @Roles() =====
 export const Roles = (...roles: UserRole[]) => SetMetadata(ROLES_KEY, roles);
+
+// ===== @Permissions() =====
+export const Permissions = (...permissions: string[]) =>
+  SetMetadata(PERMISSIONS_KEY, permissions);
