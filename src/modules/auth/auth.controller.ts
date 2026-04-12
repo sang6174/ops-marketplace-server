@@ -52,6 +52,13 @@ export class AuthController {
       maxAge: parseInt(process.env.JWT_REFRESH_EXPIRES_IN_SECONDS!),
     });
 
+    res.cookie('sessionId', result.sessionId, {
+      httpOnly: true,
+      secure: false,
+      sameSite: 'strict',
+      maxAge: parseInt(process.env.JWT_REFRESH_EXPIRES_IN_SECONDS!),
+    });
+
     return {
       user: result.user,
       accessToken: result.accessToken,
@@ -83,6 +90,13 @@ export class AuthController {
       maxAge: parseInt(process.env.JWT_REFRESH_EXPIRES_IN_SECONDS!),
     });
 
+    res.cookie('sessionId', result.sessionId, {
+      httpOnly: true,
+      secure: false,
+      sameSite: 'strict',
+      maxAge: parseInt(process.env.JWT_REFRESH_EXPIRES_IN_SECONDS!),
+    });
+
     return {
       accessToken: result.accessToken,
       sessionId: result.sessionId,
@@ -102,7 +116,19 @@ export class AuthController {
     const result = await this.authService.logout(user);
     this.authService.logout(user);
 
-    res.cookie('refreshToken', '');
+    res.cookie('refreshToken', '', {
+      httpOnly: true,
+      secure: false,
+      sameSite: 'strict',
+      maxAge: 0,
+    });
+
+    res.cookie('sessionId', '', {
+      httpOnly: true,
+      secure: false,
+      sameSite: 'strict',
+      maxAge: 0,
+    });
 
     return result;
   }
