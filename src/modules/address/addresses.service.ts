@@ -52,28 +52,35 @@ export class AddressesService {
     addressId: string,
     dto: UpdateAddressDto,
   ) {
-    await this.getAddress(userId, addressId);
+    await this.prisma.$transaction(async (tx) => {
+      if (dto.isDefault) {
+        await tx.address.updateMany({
+          where: {
+            userId,
+            isDeleted: false,
+            NOT: { id: addressId },
+          },
+          data: { isDefault: false },
+        });
+      }
 
-    // If setting as default, unset other defaults
-    if (dto.isDefault) {
-      await this.prisma.address.updateMany({
+      const updated = await tx.address.updateMany({
         where: {
+          id: addressId,
           userId,
           isDeleted: false,
-          NOT: { id: addressId },
         },
-        data: { isDefault: false },
+        data: {
+          addressLine: dto.addressLine,
+          city: dto.city,
+          country: dto.country,
+          isDefault: dto.isDefault,
+        },
       });
-    }
 
-    return this.prisma.address.update({
-      where: { id: addressId },
-      data: {
-        addressLine: dto.addressLine,
-        city: dto.city,
-        country: dto.country,
-        isDefault: dto.isDefault,
-      },
+      if (updated.count === 0) {
+        throw new ResourceNotFoundException('Address', addressId);
+      }
     });
   }
 

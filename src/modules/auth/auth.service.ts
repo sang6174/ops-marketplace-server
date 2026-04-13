@@ -152,7 +152,7 @@ export class AuthService {
   ): Promise<TokenPair> {
     const sessionId = randomUUID();
 
-    // Tạo token pair
+    // Create the token pair
     const accessPayload: JwtPayload = {
       sub: userId,
       email,
