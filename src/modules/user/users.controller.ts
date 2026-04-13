@@ -30,7 +30,7 @@ export class UsersController {
 
   // GET /users/me
   @Get('me')
-  @ApiOperation({ summary: 'Lấy thông tin cá nhân' })
+  @ApiOperation({ summary: "Get user's info" })
   @UseGuards(JwtAuthGuard)
   getProfile(@GetUser() user: AuthUser) {
     return this.usersService.getProfile(user.id);
@@ -38,7 +38,7 @@ export class UsersController {
 
   // PATCH /users/me
   @Patch('me')
-  @ApiOperation({ summary: 'Cập nhật thông tin cá nhân' })
+  @ApiOperation({ summary: "Update user's info" })
   @UseGuards(JwtAuthGuard)
   updateProfile(@GetUser() user: AuthUser, @Body() dto: UpdateProfileDto) {
     return this.usersService.updateProfile(user.id, dto);
@@ -47,7 +47,7 @@ export class UsersController {
   // PATCH /users/me/password
   @Patch('me/password')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Đổi mật khẩu' })
+  @ApiOperation({ summary: 'Change password' })
   @UseGuards(JwtAuthGuard)
   changePassword(@GetUser() user: AuthUser, @Body() dto: ChangePasswordDto) {
     return this.usersService.changePassword(user.id, dto);
@@ -56,7 +56,7 @@ export class UsersController {
   // POST /users/me/become-seller
   @Post('me/become-seller')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Đăng ký trở thành Seller' })
+  @ApiOperation({ summary: '[BUYER] Register as a seller' })
   @UseGuards(JwtAuthGuard)
   becomeSeller(@GetUser() user: AuthUser) {
     return this.usersService.becomeSeller(user.id);
@@ -67,7 +67,7 @@ export class UsersController {
   @UseGuards(JwtAuthGuard)
   @Roles(UserRole.ADMIN)
   @Permissions(Permission.USER_READ)
-  @ApiOperation({ summary: '[Admin] Danh sách users' })
+  @ApiOperation({ summary: '[ADMIN] Get user list' })
   findAll(@Query() dto: QueryUsersDto) {
     return this.usersService.findAll(dto);
   }
@@ -77,7 +77,7 @@ export class UsersController {
   @UseGuards(JwtAuthGuard)
   @Roles(UserRole.ADMIN)
   @Permissions(Permission.USER_UPDATE)
-  @ApiOperation({ summary: '[Admin] Cập nhật trạng thái user' })
+  @ApiOperation({ summary: '[ADMIN] Update status of the user' })
   updateStatus(@Param('id') id: string, @Body('status') status: AccountStatus) {
     return this.usersService.updateStatus(id, status);
   }

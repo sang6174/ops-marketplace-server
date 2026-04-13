@@ -24,9 +24,8 @@ export class AuthController {
   // ===== POST /auth/register =====
   @Public()
   @Post('register')
-  @ApiOperation({ summary: 'Đăng ký tài khoản mới' })
+  @ApiOperation({ summary: 'Register a new account' })
   async register(@Body() dto: RegisterDto) {
-    console.log(dto);
     return this.authService.register(dto);
   }
 
@@ -34,7 +33,7 @@ export class AuthController {
   @Public()
   @Post('login')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Đăng nhập' })
+  @ApiOperation({ summary: "Log in to user's account" })
   async login(
     @Body() dto: LoginDto,
     @Req() req: Request,
@@ -62,7 +61,6 @@ export class AuthController {
     return {
       user: result.user,
       accessToken: result.accessToken,
-      sessionId: result.sessionId,
     };
   }
 
@@ -71,7 +69,7 @@ export class AuthController {
   @UseGuards(RefreshTokenGuard)
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Làm mới access token' })
+  @ApiOperation({ summary: 'Refresh access token' })
   async refresh(
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
@@ -99,7 +97,6 @@ export class AuthController {
 
     return {
       accessToken: result.accessToken,
-      sessionId: result.sessionId,
     };
   }
 
@@ -108,7 +105,7 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Đăng xuất' })
+  @ApiOperation({ summary: "Log out of user's account" })
   async logout(
     @GetUser() user: AuthUser,
     @Res({ passthrough: true }) res: Response,

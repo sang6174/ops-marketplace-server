@@ -23,14 +23,14 @@ export class CategoriesController {
 
   @Public()
   @Get()
-  @ApiOperation({ summary: '' })
+  @ApiOperation({ summary: 'Get categories' })
   listCategories() {
     return this.service.listCategories();
   }
 
   @Public()
   @Get(':id/children')
-  @ApiOperation({ summary: '' })
+  @ApiOperation({ summary: 'Get children of a category' })
   getChildren(@Param('id') id: string) {
     return this.service.getChildren(id);
   }
@@ -40,7 +40,7 @@ export class CategoriesController {
   @UseGuards(JwtAuthGuard)
   @Roles(UserRole.ADMIN)
   @Permissions(Permission.CATEGORY_CREATE)
-  @ApiOperation({ summary: '' })
+  @ApiOperation({ summary: '[ADMIN] Create a new category' })
   createCategory(@Body() dto: CreateCategoryDto) {
     return this.service.createCategory(dto);
   }
@@ -50,7 +50,7 @@ export class CategoriesController {
   @Roles(UserRole.ADMIN)
   @Permissions(Permission.CATEGORY_UPDATE)
   @ApiBearerAuth('JWT')
-  @ApiOperation({ summary: '' })
+  @ApiOperation({ summary: 'Update a category' })
   updateCategory(@Param('id') id: string, @Body() dto: UpdateCategoryDto) {
     return this.service.updateCategory(id, dto);
   }
@@ -60,7 +60,7 @@ export class CategoriesController {
   @Roles(UserRole.ADMIN)
   @Permissions(Permission.CATEGORY_DELETE)
   @ApiBearerAuth('JWT')
-  @ApiOperation({ summary: '' })
+  @ApiOperation({ summary: 'Delete a category' })
   deleteCategory(@Param('id') id: string) {
     return this.service.deleteCategory(id);
   }

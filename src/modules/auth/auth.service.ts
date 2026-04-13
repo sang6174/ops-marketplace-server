@@ -124,7 +124,7 @@ export class AuthService {
     });
 
     if (!user) {
-      throw new UnauthorizedException('User không tồn tại');
+      throw new UnauthorizedException('Người dùng không tồn tại');
     }
 
     await this.prisma.session.update({

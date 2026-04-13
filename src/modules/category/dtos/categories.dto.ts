@@ -3,15 +3,15 @@ import { IsNotEmpty, IsOptional, IsString, MaxLength } from 'class-validator';
 import { PartialType } from '@nestjs/mapped-types';
 
 export class CreateCategoryDto {
-  @ApiProperty({ example: 'Điện Thoại' })
+  @ApiProperty({ example: 'Đồ Công Nghệ' })
   @IsString()
-  @IsNotEmpty({ message: 'Tên category không được để trống' })
+  @IsNotEmpty({ message: 'Name of Category is not empty' })
   @MaxLength(100)
   name!: string;
 
-  @ApiProperty({ example: 'dien-thoai' })
+  @ApiProperty({ example: 'do-cong-nghe' })
   @IsString()
-  @IsNotEmpty({ message: 'slug không được để trống' })
+  @IsNotEmpty({ message: 'slug is not empty' })
   @MaxLength(100)
   slug!: string;
 

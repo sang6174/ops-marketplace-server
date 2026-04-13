@@ -251,7 +251,6 @@ export class ProductsService {
   }
 
   async getProduct(id: string) {
-    console.log(id);
     return this.prisma.product.findUnique({
       where: { id },
       include: {

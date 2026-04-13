@@ -11,14 +11,14 @@ export class ProductsController {
 
   @Public()
   @Get()
-  @ApiOperation({ summary: '' })
+  @ApiOperation({ summary: 'Get a product list' })
   listProduct() {
     return this.productsService.listProducts();
   }
 
   @Public()
   @Get(':id/')
-  @ApiOperation({ summary: '' })
+  @ApiOperation({ summary: 'Get a product, and also get product variants' })
   getProduct(@Param('id') id: string) {
     console.log(id);
     return this.productsService.getProduct(id);
@@ -26,7 +26,7 @@ export class ProductsController {
 
   @Public()
   @Get(':id/variants')
-  @ApiOperation({ summary: '' })
+  @ApiOperation({ summary: 'Get variant products' })
   getVariants(@Param('id') productId: string) {
     return this.productsService.getVariants(productId);
   }

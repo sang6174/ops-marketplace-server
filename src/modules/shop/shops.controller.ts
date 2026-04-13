@@ -40,7 +40,7 @@ export class ShopsController {
   @Roles(UserRole.SELLER)
   @Permissions(Permission.SHOP_CREATE)
   @ApiBearerAuth('JWT')
-  @ApiOperation({ summary: '[Seller] Tạo shop' })
+  @ApiOperation({ summary: '[SELLER] Create a new shop' })
   create(@GetUser() user: AuthUser, @Body() dto: CreateShopDto) {
     return this.shopsService.create(user.id, dto);
   }
@@ -50,7 +50,7 @@ export class ShopsController {
   @UseGuards(JwtAuthGuard)
   @Roles(UserRole.SELLER)
   @ApiBearerAuth('JWT')
-  @ApiOperation({ summary: '[Seller] Xem shop của mình' })
+  @ApiOperation({ summary: '[SELLER] View your own shop' })
   getMyShop(@GetUser() user: AuthUser) {
     return this.shopsService.getMyShop(user.id);
   }
@@ -61,7 +61,7 @@ export class ShopsController {
   @Roles(UserRole.SELLER)
   @Permissions(Permission.SHOP_UPDATE)
   @ApiBearerAuth('JWT')
-  @ApiOperation({ summary: '[Seller] Cập nhật shop' })
+  @ApiOperation({ summary: '[SELLER] Update your shop' })
   update(@GetUser() user: AuthUser, @Body() dto: UpdateShopDto) {
     return this.shopsService.update(user.id, dto);
   }
@@ -72,9 +72,20 @@ export class ShopsController {
   @Roles(UserRole.SELLER)
   @Permissions(Permission.PRODUCT_CREATE)
   @ApiBearerAuth('JWT')
-  @ApiOperation({ summary: '[Selller] tạo sản phẩm mới' })
+  @ApiOperation({ summary: '[SELLER] Create a new product' })
   createProduct(@GetUser() user: AuthUser, @Body() dto: CreateProductDto) {
     return this.productsService.createProduct(user.id, dto);
+  }
+
+  // PATCH /shops/me/products/:id/launch
+  @Patch('me/products/:id/launch')
+  @UseGuards(JwtAuthGuard)
+  @Roles(UserRole.SELLER)
+  @Permissions(Permission.PRODUCT_UPDATE)
+  @ApiBearerAuth('JWT')
+  @ApiOperation({ summary: '[SELLER] Launch a product' })
+  archiveProduct(@GetUser() user: AuthUser, @Param('id') id: string) {
+    return this.productsService.archiveProduct(user.id, id);
   }
 
   // PATCH /shops/me/products/:id
@@ -83,7 +94,7 @@ export class ShopsController {
   @Roles(UserRole.SELLER)
   @Permissions(Permission.PRODUCT_UPDATE)
   @ApiBearerAuth('JWT')
-  @ApiOperation({ summary: '[Selller] chỉnh sủa sản phẩm' })
+  @ApiOperation({ summary: '[SELLER] Update a product' })
   updateProduct(
     @GetUser() user: AuthUser,
     @Param('id') id: string,
@@ -92,24 +103,13 @@ export class ShopsController {
     return this.productsService.updateProduct(user.id, id, dto);
   }
 
-  // DELETE /shops/me/products/:id
-  @Patch('me/products/:id')
-  @UseGuards(JwtAuthGuard)
-  @Roles(UserRole.SELLER)
-  @Permissions(Permission.PRODUCT_UPDATE)
-  @ApiBearerAuth('JWT')
-  @ApiOperation({ summary: '[Selller] tạm xóa sản phẩm' })
-  archiveProduct(@GetUser() user: AuthUser, @Param('id') id: string) {
-    return this.productsService.archiveProduct(user.id, id);
-  }
-
   // Patch /shops/me/products/:id/publish
   @Patch('me/products/:id')
   @UseGuards(JwtAuthGuard)
   @Roles(UserRole.SELLER)
   @Permissions(Permission.PRODUCT_UPDATE)
   @ApiBearerAuth('JWT')
-  @ApiOperation({ summary: '[Selller] mở bán sản phẩm' })
+  @ApiOperation({ summary: '[SELLER] Update info of the product' })
   publishProduct(@GetUser() user: AuthUser, @Param('id') id: string) {
     return this.productsService.publishProduct(user.id, id);
   }
@@ -120,7 +120,7 @@ export class ShopsController {
   @Roles(UserRole.SELLER)
   @Permissions(Permission.PRODUCT_UPDATE)
   @ApiBearerAuth('JWT')
-  @ApiOperation({ summary: '[Selller] thêm biến thể của sản phẩm' })
+  @ApiOperation({ summary: '[SELLER] Add a new variant of a product' })
   addVariant(
     @GetUser() user: AuthUser,
     @Param('id') id: string,
@@ -135,7 +135,7 @@ export class ShopsController {
   @Roles(UserRole.SELLER)
   @Permissions(Permission.PRODUCT_UPDATE)
   @ApiBearerAuth('JWT')
-  @ApiOperation({ summary: '[Selller] chỉnh sủa biến thể của sản phẩm' })
+  @ApiOperation({ summary: '[SELLER] Update a variant of a product' })
   updateVariant(
     @GetUser() user: AuthUser,
     @Param('id') id: string,
@@ -145,13 +145,13 @@ export class ShopsController {
     return this.productsService.updateVariant(user.id, id, vid, dto);
   }
 
-  // DELETE /shops/me/products/:id/variants/:vid
+  // PATCH /shops/me/products/:id/variants/:vid
   @Patch('me/products/:id/variant/:vid')
   @UseGuards(JwtAuthGuard)
   @Roles(UserRole.SELLER)
   @Permissions(Permission.PRODUCT_UPDATE)
   @ApiBearerAuth('JWT')
-  @ApiOperation({ summary: '[Selller] tạm xóa biến thể của sản phẩm' })
+  @ApiOperation({ summary: '[SELLER] Cancel sales of a variant of a product' })
   deleteVariant(
     @GetUser() user: AuthUser,
     @Param('id') id: string,
@@ -166,7 +166,7 @@ export class ShopsController {
   @Roles(UserRole.SELLER)
   @Permissions(Permission.INVENTORY_UPDATE)
   @ApiBearerAuth('JWT')
-  @ApiOperation({ summary: '[Selller] chỉnh sủa sản phẩm' })
+  @ApiOperation({ summary: '[SELLER] Update inventory of a product' })
   adjustInventory(
     @GetUser() user: AuthUser,
     @Param('id') id: string,
@@ -179,7 +179,7 @@ export class ShopsController {
   // GET /shops  (public)
   @Public()
   @Get()
-  @ApiOperation({ summary: 'Danh sách shops' })
+  @ApiOperation({ summary: 'Get shop list' })
   findAll(@Query() dto: QueryShopsDto) {
     return this.shopsService.findAll(dto);
   }
@@ -187,7 +187,7 @@ export class ShopsController {
   // GET /shops/:id  (public)
   @Public()
   @Get(':id')
-  @ApiOperation({ summary: 'Chi tiết shop' })
+  @ApiOperation({ summary: 'Details of a shop' })
   findOne(@Param('id') id: string) {
     return this.shopsService.findOne(id);
   }

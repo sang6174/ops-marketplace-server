@@ -62,15 +62,15 @@ async function bootstrap(): Promise<void> {
       )
       .addTag('Auth', 'Register, login, refresh token, logout, etc.')
       .addTag('Users', 'User management')
+      .addTag('Addresses', 'Address management')
       .addTag('Shops', 'Shop management')
+      .addTag('Categories', 'Category management')
       .addTag('Products', 'Product management')
       .addTag('Cart', 'Shopping cart')
       .addTag('Orders', 'Order management')
       .addTag('Payments', 'Payment management')
-      .addTag('Shipping', 'Shipping management')
-      .addTag('Chat', 'Chat real-time')
-      .addTag('Notifications', 'Information notifications')
-      .addTag('Reviews', 'Product reviews and ratings')
+      .addTag('Ledger', 'Ledger management')
+      .addTag('Payouts', 'Payout management')
       .build();
 
     const document = SwaggerModule.createDocument(app, swaggerConfig);

@@ -77,7 +77,10 @@ export class UsersService {
       data: { userId, role: UserRole.SELLER },
     });
 
-    return { message: 'Bạn đã trở thành Seller. Hãy tạo shop của mình!' };
+    return {
+      message:
+        'Bạn đã có quyền của người bán. Hãy tạo một của hàng của riêng mình!',
+    };
   }
 
   async findAll(dto: QueryUsersDto) {

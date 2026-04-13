@@ -26,7 +26,7 @@ export class AddressesController {
   @Post()
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('JWT')
-  @ApiOperation({ summary: 'Create new address' })
+  @ApiOperation({ summary: '[BUYER] Create new address' })
   createAddress(@GetUser() user: AuthUser, @Body() dto: CreateAddressDto) {
     return this.addressesService.createAddress(user.id, dto);
   }
@@ -34,7 +34,7 @@ export class AddressesController {
   @Get('default')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('JWT')
-  @ApiOperation({ summary: 'Get default address' })
+  @ApiOperation({ summary: '[BUYER] Get default address' })
   getDefaultAddress(@GetUser() user: AuthUser) {
     return this.addressesService.getDefaultAddress(user.id);
   }
@@ -42,7 +42,7 @@ export class AddressesController {
   @Get()
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('JWT')
-  @ApiOperation({ summary: 'List user addresses' })
+  @ApiOperation({ summary: '[BUYER] List user addresses' })
   listAddresses(@GetUser() user: AuthUser) {
     return this.addressesService.listAddresses(user.id);
   }
@@ -50,7 +50,7 @@ export class AddressesController {
   @Get(':id')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('JWT')
-  @ApiOperation({ summary: 'Get address details' })
+  @ApiOperation({ summary: '[BUYER] Get address details' })
   getAddress(@GetUser() user: AuthUser, @Param('id') addressId: string) {
     return this.addressesService.getAddress(user.id, addressId);
   }
@@ -58,7 +58,7 @@ export class AddressesController {
   @Patch(':id')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('JWT')
-  @ApiOperation({ summary: 'Update address' })
+  @ApiOperation({ summary: '[BUYER] Update address' })
   updateAddress(
     @GetUser() user: AuthUser,
     @Param('id') addressId: string,
@@ -71,7 +71,7 @@ export class AddressesController {
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('JWT')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Delete address (soft delete)' })
+  @ApiOperation({ summary: '[BUYER] Delete address (soft delete)' })
   deleteAddress(@GetUser() user: AuthUser, @Param('id') addressId: string) {
     return this.addressesService.deleteAddress(user.id, addressId);
   }
@@ -80,7 +80,7 @@ export class AddressesController {
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('JWT')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Set address as default' })
+  @ApiOperation({ summary: '[BUYER] Set address as default' })
   setDefaultAddress(@GetUser() user: AuthUser, @Param('id') addressId: string) {
     return this.addressesService.setDefaultAddress(user.id, addressId);
   }
