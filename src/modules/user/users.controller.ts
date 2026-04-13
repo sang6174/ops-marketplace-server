@@ -16,10 +16,14 @@ import {
   UserRole,
 } from '@infrastructure/generated/prisma/enums';
 import { GetUser, Roles, Permissions } from '@common/decorators';
-import { Permission } from '@common/constants/permissions';
 import { AuthUser } from '@modules/auth/dtos/auth.dto';
 import { UsersService } from './users.service';
-import { UpdateProfileDto, ChangePasswordDto, QueryUsersDto } from './dto';
+import {
+  UpdateProfileDto,
+  ChangePasswordDto,
+  QueryUsersDto,
+  UpdateUserStatusDto,
+} from './dto';
 import { JwtAuthGuard } from '../auth/guards';
 
 @ApiTags('Users')
@@ -66,7 +70,6 @@ export class UsersController {
   @Get()
   @UseGuards(JwtAuthGuard)
   @Roles(UserRole.ADMIN)
-  @Permissions(Permission.USER_READ)
   @ApiOperation({ summary: '[ADMIN] Get user list' })
   findAll(@Query() dto: QueryUsersDto) {
     return this.usersService.findAll(dto);
@@ -76,9 +79,8 @@ export class UsersController {
   @Patch(':id/status')
   @UseGuards(JwtAuthGuard)
   @Roles(UserRole.ADMIN)
-  @Permissions(Permission.USER_UPDATE)
   @ApiOperation({ summary: '[ADMIN] Update status of the user' })
-  updateStatus(@Param('id') id: string, @Body('status') status: AccountStatus) {
-    return this.usersService.updateStatus(id, status);
+  updateStatus(@Param('id') id: string, @Body() dto: UpdateUserStatusDto) {
+    return this.usersService.updateStatus(id, dto.status);
   }
 }
