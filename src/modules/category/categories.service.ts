@@ -79,11 +79,34 @@ export class CategoriesService {
       );
     }
 
+    const slug = dto.slug ?? category.slug;
+
+    let path = '';
+    let level = 0;
+
+    if (category.parentId) {
+      const parent = await this.prisma.category.findUnique({
+        where: { id: category.parentId },
+      });
+
+      if (!parent) {
+        throw new NotFoundException('Parent category not found');
+      }
+
+      path = `${parent.path}/${slug}`;
+      level = parent.level + 1;
+    } else {
+      path = `/${slug}`;
+      level = 0;
+    }
+
     return this.prisma.category.update({
       where: { id },
       data: {
         name: dto.name,
-        slug: dto.slug,
+        slug,
+        path,
+        level,
       },
     });
   }

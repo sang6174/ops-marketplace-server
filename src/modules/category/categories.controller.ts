@@ -13,7 +13,6 @@ import { JwtAuthGuard } from '../auth/guards';
 import { CategoriesService } from './categories.service';
 import { CreateCategoryDto, UpdateCategoryDto } from './dtos/categories.dto';
 import { Public, Roles, Permissions } from '@/common/decorators';
-import { Permission } from '@/common/constants/permissions';
 import { UserRole } from '@/infrastructure/generated/prisma/enums';
 
 @ApiTags('Categories')
@@ -39,7 +38,6 @@ export class CategoriesController {
   @Post()
   @UseGuards(JwtAuthGuard)
   @Roles(UserRole.ADMIN)
-  @Permissions(Permission.CATEGORY_CREATE)
   @ApiOperation({ summary: '[ADMIN] Create a new category' })
   createCategory(@Body() dto: CreateCategoryDto) {
     return this.service.createCategory(dto);
@@ -48,7 +46,6 @@ export class CategoriesController {
   @Patch(':id')
   @UseGuards(JwtAuthGuard)
   @Roles(UserRole.ADMIN)
-  @Permissions(Permission.CATEGORY_UPDATE)
   @ApiBearerAuth('JWT')
   @ApiOperation({ summary: 'Update a category' })
   updateCategory(@Param('id') id: string, @Body() dto: UpdateCategoryDto) {
@@ -58,7 +55,6 @@ export class CategoriesController {
   @Delete(':id')
   @UseGuards(JwtAuthGuard)
   @Roles(UserRole.ADMIN)
-  @Permissions(Permission.CATEGORY_DELETE)
   @ApiBearerAuth('JWT')
   @ApiOperation({ summary: 'Delete a category' })
   deleteCategory(@Param('id') id: string) {

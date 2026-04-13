@@ -1,5 +1,11 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsNotEmpty, IsOptional, IsString, MaxLength } from 'class-validator';
+import {
+  IsNotEmpty,
+  IsOptional,
+  IsUUID,
+  IsString,
+  MaxLength,
+} from 'class-validator';
 import { PartialType } from '@nestjs/mapped-types';
 
 export class CreateCategoryDto {
@@ -16,6 +22,9 @@ export class CreateCategoryDto {
   slug!: string;
 
   @ApiProperty({ example: 'uuidv4' })
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsUUID()
   parentId?: string;
 }
 
