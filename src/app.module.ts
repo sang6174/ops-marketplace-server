@@ -12,6 +12,7 @@ import { LoggingInterceptor } from '@common/interceptors/logging.interceptor';
 import { RolesAndPermissionsGuard } from '@modules/auth/guards';
 import { AuthModule } from '@modules/auth/auth.module';
 import { UsersModule } from './modules/user/users.module';
+import { AdminModule } from './modules/admin/admin.module';
 import { ShopsModule } from './modules/shop/shops.module';
 import { ProductsModule } from './modules/product/products.module';
 import { CategoriesModule } from './modules/category/categories.module';
@@ -34,6 +35,7 @@ import { LedgerModule } from './modules/ledger/ledger.module';
     PrismaModule,
     AuthModule,
     UsersModule,
+    AdminModule,
     ShopsModule,
     ProductsModule,
     CategoriesModule,

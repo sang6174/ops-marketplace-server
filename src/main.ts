@@ -63,6 +63,7 @@ async function bootstrap(): Promise<void> {
       .addTag('Auth', 'Register, login, refresh token, logout, etc.')
       .addTag('Users', 'User management')
       .addTag('Addresses', 'Address management')
+      .addTag('Admin', 'Admin management')
       .addTag('Shops', 'Shop management')
       .addTag('Categories', 'Category management')
       .addTag('Products', 'Product management')
