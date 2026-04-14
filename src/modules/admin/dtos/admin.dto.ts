@@ -44,7 +44,7 @@ export class QueryAdminUsersDto {
   @IsEnum(UserStatusFilter)
   status?: UserStatusFilter;
 
-  @ApiPropertyOptional({ example: 'john' })
+  @ApiPropertyOptional()
   @IsOptional()
   @IsString()
   search?: string;

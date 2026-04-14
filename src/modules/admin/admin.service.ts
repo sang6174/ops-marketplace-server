@@ -168,7 +168,7 @@ export class AdminService {
       // Soft delete shop
       await tx.shop.update({
         where: { id: shopId },
-        data: { isDeleted: true, deletedAt: new Date() },
+        data: { deletedAt: new Date() },
       });
 
       await tx.auditLog.create({

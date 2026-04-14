@@ -3,17 +3,19 @@ import {
   Body,
   Controller,
   Get,
+  Post,
   Param,
   Patch,
   Query,
   UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { GetUser } from '@common/decorators';
+import { GetUser, Roles } from '@common/decorators';
 import { AuthUser } from '@modules/auth/dtos/auth.dto';
 import { JwtAuthGuard } from '../auth/guards';
 import { AdminService } from './admin.service';
 import { QueryAdminUsersDto, UpdateUserStatusDto } from './dtos/admin.dto';
+import { UserRole } from '@/infrastructure/generated/prisma/enums';
 
 @ApiTags('Admin')
 @Controller('admin')
@@ -23,6 +25,7 @@ export class AdminController {
   // USERS MANAGEMENT
   @Get('users')
   @UseGuards(JwtAuthGuard)
+  @Roles(UserRole.ADMIN)
   @ApiBearerAuth('JWT')
   @ApiOperation({ summary: '[ADMIN] List all users' })
   listUsers(@GetUser() user: AuthUser, @Query() dto: QueryAdminUsersDto) {
@@ -31,6 +34,7 @@ export class AdminController {
 
   @Get('users/:userId')
   @UseGuards(JwtAuthGuard)
+  @Roles(UserRole.ADMIN)
   @ApiBearerAuth('JWT')
   @ApiOperation({ summary: '[ADMIN] Get user details' })
   getUser(@GetUser() user: AuthUser, @Param('userId') userId: string) {
@@ -39,6 +43,7 @@ export class AdminController {
 
   @Patch('users/:userId/status')
   @UseGuards(JwtAuthGuard)
+  @Roles(UserRole.ADMIN)
   @ApiBearerAuth('JWT')
   @ApiOperation({ summary: '[ADMIN] Update user status' })
   updateUserStatus(
@@ -51,6 +56,7 @@ export class AdminController {
 
   @Patch('users/:userId/suspend')
   @UseGuards(JwtAuthGuard)
+  @Roles(UserRole.ADMIN)
   @ApiBearerAuth('JWT')
   @ApiOperation({ summary: '[ADMIN] Suspend user' })
   suspendUser(
@@ -63,6 +69,7 @@ export class AdminController {
 
   @Patch('users/:userId/activate')
   @UseGuards(JwtAuthGuard)
+  @Roles(UserRole.ADMIN)
   @ApiBearerAuth('JWT')
   @ApiOperation({ summary: '[ADMIN] Activate user' })
   activateUser(@GetUser() user: AuthUser, @Param('userId') userId: string) {
@@ -72,6 +79,7 @@ export class AdminController {
   // SHOPS MANAGEMENT
   @Get('shops')
   @UseGuards(JwtAuthGuard)
+  @Roles(UserRole.ADMIN)
   @ApiBearerAuth('JWT')
   @ApiOperation({ summary: '[ADMIN] List all shops' })
   listShops(
@@ -88,6 +96,7 @@ export class AdminController {
 
   @Patch('shops/:shopId/suspend')
   @UseGuards(JwtAuthGuard)
+  @Roles(UserRole.ADMIN)
   @ApiBearerAuth('JWT')
   @ApiOperation({ summary: '[ADMIN] Suspend shop' })
   suspendShop(
