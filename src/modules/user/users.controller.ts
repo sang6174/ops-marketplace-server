@@ -9,7 +9,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { GetUser, Roles, Permissions } from '@common/decorators';
+import { GetUser } from '@common/decorators';
 import { AuthUser } from '@modules/auth/dtos/auth.dto';
 import { UsersService } from './users.service';
 import { UpdateProfileDto, ChangePasswordDto } from './dto';

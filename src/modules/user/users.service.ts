@@ -18,7 +18,7 @@ export class UsersService {
 
   async getProfile(userId: string) {
     const user = await this.prisma.user.findFirst({
-      where: { id: userId, isDeleted: false },
+      where: { id: userId, deletedAt: null },
       include: {
         roles: { select: { role: true } },
         shop: { select: { id: true, name: true } },
