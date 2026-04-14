@@ -11,8 +11,7 @@ import {
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { UserRole } from '@infrastructure/generated/prisma/enums';
-import { GetUser, Public, Roles, Permissions } from '@common/decorators';
-import { Permission } from '@common/constants/permissions';
+import { GetUser, Public, Roles } from '@common/decorators';
 import { AuthUser } from '@modules/auth/dtos/auth.dto';
 import { ShopsService } from './shops.service';
 import { ProductsService } from '../product/products.service';
@@ -38,7 +37,6 @@ export class ShopsController {
   @Post()
   @UseGuards(JwtAuthGuard)
   @Roles(UserRole.SELLER)
-  @Permissions(Permission.SHOP_CREATE)
   @ApiBearerAuth('JWT')
   @ApiOperation({ summary: '[SELLER] Create a new shop' })
   create(@GetUser() user: AuthUser, @Body() dto: CreateShopDto) {
@@ -59,7 +57,6 @@ export class ShopsController {
   @Patch('me')
   @UseGuards(JwtAuthGuard)
   @Roles(UserRole.SELLER)
-  @Permissions(Permission.SHOP_UPDATE)
   @ApiBearerAuth('JWT')
   @ApiOperation({ summary: '[SELLER] Update your shop' })
   update(@GetUser() user: AuthUser, @Body() dto: UpdateShopDto) {
@@ -70,20 +67,32 @@ export class ShopsController {
   @Post('me/product')
   @UseGuards(JwtAuthGuard)
   @Roles(UserRole.SELLER)
-  @Permissions(Permission.PRODUCT_CREATE)
   @ApiBearerAuth('JWT')
   @ApiOperation({ summary: '[SELLER] Create a new product' })
   createProduct(@GetUser() user: AuthUser, @Body() dto: CreateProductDto) {
     return this.productsService.createProduct(user.id, dto);
   }
 
-  // PATCH /shops/me/products/:id/launch
+  // Patch /shops/me/products/:id/launch
   @Patch('me/products/:id/launch')
   @UseGuards(JwtAuthGuard)
   @Roles(UserRole.SELLER)
-  @Permissions(Permission.PRODUCT_UPDATE)
   @ApiBearerAuth('JWT')
   @ApiOperation({ summary: '[SELLER] Launch a product' })
+  publishProduct(@GetUser() user: AuthUser, @Param('id') id: string) {
+    return this.productsService.publishProduct(user.id, id);
+  }
+
+  // PATCH /shops/me/products/:id/archive
+  @Patch('me/products/:id/archive')
+  @UseGuards(JwtAuthGuard)
+  @Roles(UserRole.SELLER)
+  @ApiBearerAuth('JWT')
+  @ApiOperation({
+    summary: '[SELLER] Archive product',
+    description:
+      'Mark a product as archived. Archived products are no longer visible or purchasable but remain in the system for historical and audit purposes.',
+  })
   archiveProduct(@GetUser() user: AuthUser, @Param('id') id: string) {
     return this.productsService.archiveProduct(user.id, id);
   }
@@ -92,7 +101,6 @@ export class ShopsController {
   @Patch('me/products/:id')
   @UseGuards(JwtAuthGuard)
   @Roles(UserRole.SELLER)
-  @Permissions(Permission.PRODUCT_UPDATE)
   @ApiBearerAuth('JWT')
   @ApiOperation({ summary: '[SELLER] Update a product' })
   updateProduct(
@@ -103,22 +111,10 @@ export class ShopsController {
     return this.productsService.updateProduct(user.id, id, dto);
   }
 
-  // Patch /shops/me/products/:id/publish
-  @Patch('me/products/:id')
-  @UseGuards(JwtAuthGuard)
-  @Roles(UserRole.SELLER)
-  @Permissions(Permission.PRODUCT_UPDATE)
-  @ApiBearerAuth('JWT')
-  @ApiOperation({ summary: '[SELLER] Update info of the product' })
-  publishProduct(@GetUser() user: AuthUser, @Param('id') id: string) {
-    return this.productsService.publishProduct(user.id, id);
-  }
-
   // POST /shops/me/products/:id/variants
   @Post('me/products/:id/variants')
   @UseGuards(JwtAuthGuard)
   @Roles(UserRole.SELLER)
-  @Permissions(Permission.PRODUCT_UPDATE)
   @ApiBearerAuth('JWT')
   @ApiOperation({ summary: '[SELLER] Add a new variant of a product' })
   addVariant(
@@ -133,7 +129,6 @@ export class ShopsController {
   @Patch('me/products/:id/variants/:vid')
   @UseGuards(JwtAuthGuard)
   @Roles(UserRole.SELLER)
-  @Permissions(Permission.PRODUCT_UPDATE)
   @ApiBearerAuth('JWT')
   @ApiOperation({ summary: '[SELLER] Update a variant of a product' })
   updateVariant(
@@ -149,7 +144,6 @@ export class ShopsController {
   @Patch('me/products/:id/variant/:vid')
   @UseGuards(JwtAuthGuard)
   @Roles(UserRole.SELLER)
-  @Permissions(Permission.PRODUCT_UPDATE)
   @ApiBearerAuth('JWT')
   @ApiOperation({ summary: '[SELLER] Cancel sales of a variant of a product' })
   deleteVariant(
@@ -164,7 +158,6 @@ export class ShopsController {
   @Patch('me/products/:id/variants/:vid/inventory')
   @UseGuards(JwtAuthGuard)
   @Roles(UserRole.SELLER)
-  @Permissions(Permission.INVENTORY_UPDATE)
   @ApiBearerAuth('JWT')
   @ApiOperation({ summary: '[SELLER] Update inventory of a product' })
   adjustInventory(
