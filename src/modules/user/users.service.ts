@@ -4,19 +4,13 @@ import {
   UserRole,
 } from '@infrastructure/generated/prisma/enums';
 import { PrismaService } from '@infrastructure/prisma/prisma.service';
-import {
-  comparePassword,
-  hashPassword,
-  exclude,
-  toPrismaPage,
-} from '@common/utils';
+import { comparePassword, hashPassword, exclude } from '@common/utils';
 import {
   ResourceNotFoundException,
   ResourceAlreadyExistsException,
 } from '@common/exceptions';
 import { UnauthorizedException } from '@nestjs/common';
-import { paginate } from '@common/dtos/pagination.dto';
-import { UpdateProfileDto, ChangePasswordDto, QueryUsersDto } from './dto';
+import { UpdateProfileDto, ChangePasswordDto } from './dto';
 
 @Injectable()
 export class UsersService {
@@ -81,40 +75,5 @@ export class UsersService {
       message:
         'Bạn đã có quyền của người bán. Hãy tạo một của hàng của riêng mình!',
     };
-  }
-
-  async findAll(dto: QueryUsersDto) {
-    const { page = 1, limit = 20, search } = dto;
-
-    const where = {
-      isDeleted: false,
-      ...(search && {
-        OR: [
-          { email: { contains: search, mode: 'insensitive' as const } },
-          { name: { contains: search, mode: 'insensitive' as const } },
-        ],
-      }),
-    };
-
-    const [items, total] = await this.prisma.$transaction([
-      this.prisma.user.findMany({
-        where,
-        ...toPrismaPage(page, limit),
-        orderBy: { createdAt: 'desc' },
-        include: { roles: { select: { role: true } } },
-        omit: { password: true },
-      }),
-      this.prisma.user.count({ where }),
-    ]);
-
-    return paginate(items, total, page, limit);
-  }
-
-  async updateStatus(userId: string, status: AccountStatus) {
-    return this.prisma.user.update({
-      where: { id: userId },
-      data: { status },
-      omit: { password: true },
-    });
   }
 }

@@ -5,25 +5,14 @@ import {
   Get,
   Post,
   Patch,
-  Query,
   Body,
-  Param,
   UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
-import {
-  AccountStatus,
-  UserRole,
-} from '@infrastructure/generated/prisma/enums';
 import { GetUser, Roles, Permissions } from '@common/decorators';
 import { AuthUser } from '@modules/auth/dtos/auth.dto';
 import { UsersService } from './users.service';
-import {
-  UpdateProfileDto,
-  ChangePasswordDto,
-  QueryUsersDto,
-  UpdateUserStatusDto,
-} from './dto';
+import { UpdateProfileDto, ChangePasswordDto } from './dto';
 import { JwtAuthGuard } from '../auth/guards';
 
 @ApiTags('Users')
@@ -64,23 +53,5 @@ export class UsersController {
   @UseGuards(JwtAuthGuard)
   becomeSeller(@GetUser() user: AuthUser) {
     return this.usersService.becomeSeller(user.id);
-  }
-
-  // GET /users  (admin only)
-  @Get()
-  @UseGuards(JwtAuthGuard)
-  @Roles(UserRole.ADMIN)
-  @ApiOperation({ summary: '[ADMIN] Get user list' })
-  findAll(@Query() dto: QueryUsersDto) {
-    return this.usersService.findAll(dto);
-  }
-
-  // PATCH /users/:id/status  (admin only)
-  @Patch(':id/status')
-  @UseGuards(JwtAuthGuard)
-  @Roles(UserRole.ADMIN)
-  @ApiOperation({ summary: '[ADMIN] Update status of the user' })
-  updateStatus(@Param('id') id: string, @Body() dto: UpdateUserStatusDto) {
-    return this.usersService.updateStatus(id, dto.status);
   }
 }
