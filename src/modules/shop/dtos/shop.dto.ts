@@ -18,13 +18,13 @@ export class CreateShopDto {
 }
 
 export class UpdateShopDto {
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ example: 'Shop Thời Trang BCD' })
   @IsOptional()
   @IsString()
   @MaxLength(100)
   name?: string;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ example: 'Chuyên bán thời trang nam nữ...' })
   @IsOptional()
   @IsString()
   @MaxLength(500)
