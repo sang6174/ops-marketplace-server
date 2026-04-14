@@ -14,27 +14,27 @@ export enum TokenType {
 }
 
 export class RegisterDto {
-  @ApiProperty({ example: 'user@example.com' })
+  @ApiProperty({ example: 'thanhsang@gmail.com' })
   @IsEmail({}, { message: 'Email không hợp lệ' })
   email!: string;
 
-  @ApiProperty({ example: 'StrongPass123!' })
+  @ApiProperty({ example: 'thanhsang' })
   @IsString()
   @MinLength(8, { message: 'Mật khẩu phải có ít nhất 8 ký tự' })
   password!: string;
 
-  @ApiPropertyOptional({ example: 'Nguyen Van A' })
+  @ApiPropertyOptional({ example: 'Lê Thanh Sang' })
   @IsOptional()
   @IsString()
   name!: string;
 }
 
 export class LoginDto {
-  @ApiProperty({ example: 'user@example.com' })
+  @ApiProperty({ example: 'thanhsang@gmail.com' })
   @IsEmail({}, { message: 'Email không hợp lệ' })
   email!: string;
 
-  @ApiProperty({ example: 'StrongPass123!' })
+  @ApiProperty({ example: 'thanhsang' })
   @IsString()
   @IsNotEmpty()
   password!: string;
