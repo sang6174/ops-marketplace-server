@@ -66,7 +66,7 @@ export class ShopsService {
 
   async findOne(shopId: string) {
     const shop = await this.prisma.shop.findFirst({
-      where: { id: shopId, isDeleted: false },
+      where: { id: shopId, deletedAt: null },
       include: {
         owner: { select: { id: true, name: true } },
         _count: { select: { products: true } },

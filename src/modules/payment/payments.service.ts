@@ -25,7 +25,7 @@ export class PaymentsService {
       where: {
         id: { in: dto.orderIds },
         userId,
-        isDeleted: false,
+        deletedAt: null,
       },
     });
 
@@ -90,7 +90,7 @@ export class PaymentsService {
 
   async getPayment(userId: string, paymentId: string) {
     const payment = await this.prisma.payment.findFirst({
-      where: { id: paymentId, userId, isDeleted: false },
+      where: { id: paymentId, userId, deletedAt: null },
       include: { items: true },
     });
 
@@ -198,7 +198,6 @@ export class PaymentsService {
       data: {
         status: PaymentStatus.FAILED,
         deletedAt: new Date(),
-        isDeleted: true,
       },
       include: { items: true },
     });
@@ -209,7 +208,7 @@ export class PaymentsService {
       where: {
         userId,
         idempotencyKey,
-        isDeleted: false,
+        deletedAt: null,
       },
       include: { items: true },
     });

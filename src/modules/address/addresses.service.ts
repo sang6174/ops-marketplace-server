@@ -12,7 +12,7 @@ export class AddressesService {
     // If setting as default, unset other defaults
     if (dto.isDefault) {
       await this.prisma.address.updateMany({
-        where: { userId, isDeleted: false },
+        where: { userId, deletedAt: null },
         data: { isDefault: false },
       });
     }
@@ -30,7 +30,7 @@ export class AddressesService {
 
   async getAddress(userId: string, addressId: string) {
     const address = await this.prisma.address.findFirst({
-      where: { id: addressId, userId, isDeleted: false },
+      where: { id: addressId, userId, deletedAt: null },
     });
 
     if (!address) {
@@ -42,7 +42,7 @@ export class AddressesService {
 
   async listAddresses(userId: string) {
     return this.prisma.address.findMany({
-      where: { userId, isDeleted: false },
+      where: { userId, deletedAt: null },
       orderBy: [{ isDefault: 'desc' }, { createdAt: 'desc' }],
     });
   }
@@ -57,7 +57,7 @@ export class AddressesService {
         await tx.address.updateMany({
           where: {
             userId,
-            isDeleted: false,
+            deletedAt: null,
             NOT: { id: addressId },
           },
           data: { isDefault: false },
@@ -68,7 +68,7 @@ export class AddressesService {
         where: {
           id: addressId,
           userId,
-          isDeleted: false,
+          deletedAt: null,
         },
         data: {
           addressLine: dto.addressLine,
@@ -89,7 +89,7 @@ export class AddressesService {
 
     return this.prisma.address.update({
       where: { id: addressId },
-      data: { isDeleted: true, deletedAt: new Date() },
+      data: { deletedAt: new Date() },
     });
   }
 
@@ -97,7 +97,7 @@ export class AddressesService {
     await this.getAddress(userId, addressId);
 
     await this.prisma.address.updateMany({
-      where: { userId, isDeleted: false },
+      where: { userId, deletedAt: null },
       data: { isDefault: false },
     });
 
@@ -109,7 +109,7 @@ export class AddressesService {
 
   async getDefaultAddress(userId: string) {
     return this.prisma.address.findFirst({
-      where: { userId, isDeleted: false, isDefault: true },
+      where: { userId, deletedAt: null, isDefault: true },
     });
   }
 }
