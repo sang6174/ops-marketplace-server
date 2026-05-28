@@ -1,17 +1,21 @@
 import {
   IsArray,
   IsBoolean,
+  IsIn,
   IsEnum,
   IsOptional,
   IsString,
   ValidateNested,
   IsDecimal,
   IsInt,
+  IsNotEmpty,
+  IsUrl,
+  Max,
   Min,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { PartialType } from '@nestjs/mapped-types';
+import { OmitType, PartialType } from '@nestjs/mapped-types';
 import { ProductStatus } from '@infrastructure/generated/prisma/enums';
 
 // ================= PRODUCT =================
@@ -79,6 +83,57 @@ export class CreateProductDto {
 
 export class UpdateProductDto extends PartialType(CreateProductDto) {}
 
+export class SellerUpdateProductDto extends PartialType(
+  OmitType(CreateProductDto, ['status', 'isFeatured'] as const),
+) {}
+
+export class QueryProductsDto {
+  @ApiPropertyOptional({ example: 1, minimum: 1 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  page?: number = 1;
+
+  @ApiPropertyOptional({ example: 20, minimum: 1, maximum: 100 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(100)
+  limit?: number = 20;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  search?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  categoryId?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  shopId?: string;
+
+  @ApiPropertyOptional({ enum: ProductStatus })
+  @IsOptional()
+  @IsEnum(ProductStatus)
+  status?: ProductStatus;
+
+  @ApiPropertyOptional({ enum: ['createdAt', 'name', 'price'] })
+  @IsOptional()
+  @IsIn(['createdAt', 'name', 'price'])
+  sortBy?: 'createdAt' | 'name' | 'price';
+
+  @ApiPropertyOptional({ enum: ['asc', 'desc'] })
+  @IsOptional()
+  @IsIn(['asc', 'desc'])
+  sortOrder?: 'asc' | 'desc';
+}
+
 // ================= INVENTORY =================
 
 export class InventoryDto {
@@ -95,23 +150,24 @@ export class InventoryDto {
 
 export class VariantAttributeDto {
   @ApiProperty({
-    example: 'color',
-    description: 'ID of the attribute (color, size, ...)',
+    example: 'uuid-attribute-value',
+    description: 'ID of the selected attribute value',
   })
   @IsString()
-  attributeId!: string;
-
-  @ApiProperty({
-    example: 'red',
-    description: 'The value of the attribute',
-  })
-  @IsString()
-  value!: string;
+  attributeValueId!: string;
 }
 
 // ================= VARIANT =================
 
 export class AddVariantDto {
+  @ApiPropertyOptional({
+    example: 'uuid-product',
+    description: 'Required when creating a variant via /seller/variants',
+  })
+  @IsOptional()
+  @IsString()
+  productId?: string;
+
   @ApiProperty({
     example: 'SKU-001',
     description: 'SKU code of the variant',
@@ -180,4 +236,48 @@ export class AdjustInventoryDto {
   })
   @IsInt()
   quantity!: number;
+}
+
+export class SetInventoryDto {
+  @ApiProperty({ example: 100 })
+  @IsInt()
+  @Min(0)
+  stock!: number;
+}
+
+export class BulkInventoryItemDto extends SetInventoryDto {
+  @ApiProperty()
+  @IsString()
+  @IsNotEmpty()
+  variantId!: string;
+}
+
+export class BulkUpdateInventoryDto {
+  @ApiProperty({ type: [BulkInventoryItemDto] })
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => BulkInventoryItemDto)
+  items!: BulkInventoryItemDto[];
+}
+
+export class CreateProductImageDto {
+  @ApiProperty({ example: 'https://example.com/product.jpg' })
+  @IsUrl()
+  url!: string;
+
+  @ApiPropertyOptional({ example: true })
+  @IsOptional()
+  @IsBoolean()
+  isPrimary?: boolean;
+
+  @ApiPropertyOptional({ example: 0 })
+  @IsOptional()
+  @IsInt()
+  sortOrder?: number;
+}
+
+export class CreateVariantImageDto {
+  @ApiProperty({ example: 'https://example.com/variant.jpg' })
+  @IsUrl()
+  url!: string;
 }

@@ -24,7 +24,6 @@ import { CategoriesModule } from './modules/category/categories.module';
 import { CartsModule } from './modules/cart/cart.module';
 import { OrdersModule } from './modules/order/orders.module';
 import { PaymentsModule } from './modules/payment/payments.module';
-import { InventoryModule } from './modules/inventory/inventories.module';
 import { PayoutsModule } from './modules/payout/payouts.module';
 import { LedgerModule } from './modules/ledger/ledger.module';
 
@@ -46,7 +45,6 @@ import { LedgerModule } from './modules/ledger/ledger.module';
     CartsModule,
     OrdersModule,
     PaymentsModule,
-    InventoryModule,
     PayoutsModule,
     LedgerModule,
   ],
