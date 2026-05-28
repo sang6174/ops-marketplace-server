@@ -45,7 +45,7 @@ export class ShopsService {
   async findAll(dto: QueryShopsDto) {
     const { page = 1, limit = 20, search } = dto;
     const where = {
-      isDeleted: false,
+      deletedAt: null,
       ...(search && {
         name: { contains: search, mode: 'insensitive' as const },
       }),

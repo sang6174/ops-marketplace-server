@@ -1,3 +1,4 @@
+// src/common/utils/index.ts
 import * as bcrypt from 'bcrypt';
 import { SALT_ROUNDS } from '../constants';
 
@@ -26,9 +27,13 @@ export function exclude<T extends object, K extends keyof T>(
 }
 
 // ===== skip/take =====
+
 export function toPrismaPage(page: number, limit: number) {
+  const validPage = Math.max(1, page);
+  const validLimit = Math.min(100, Math.max(1, limit));
+
   return {
-    skip: (page - 1) * limit,
-    take: limit,
+    skip: (validPage - 1) * validLimit,
+    take: validLimit,
   };
 }

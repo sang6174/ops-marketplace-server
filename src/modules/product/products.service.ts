@@ -15,61 +15,65 @@ export class ProductsService {
 
   async createProduct(userId: string, dto: CreateProductDto) {
     const shopId = await this.getShopId(userId);
+    console.log(shopId);
 
-    return this.prisma.$transaction(async (tx) => {
-      if (dto.categoryIds?.length) {
-        const categories = await tx.category.findMany({
-          where: { id: { in: dto.categoryIds } },
-          select: { id: true },
+    try {
+      const result = await this.prisma.$transaction(async (tx) => {
+        if (dto.categoryIds?.length) {
+          const categories = await tx.category.findMany({
+            where: { id: { in: dto.categoryIds } },
+            select: { id: true },
+          });
+
+          if (categories.length !== dto.categoryIds.length) {
+            throw new Error('Invalid categoryIds');
+          }
+        }
+
+        const product = await tx.product.create({
+          data: {
+            shopId,
+            name: dto.name,
+            slug: dto.slug,
+            description: dto.description,
+            status: dto.status,
+            isFeatured: dto.isFeatured,
+
+            categories: dto.categoryIds
+              ? {
+                  create: dto.categoryIds.map((categoryId) => ({
+                    categoryId,
+                  })),
+                }
+              : undefined,
+
+            variants: dto.variants
+              ? {
+                  create: dto.variants.map((v) => ({
+                    sku: v.sku,
+                    name: v.name,
+                    price: v.price,
+
+                    isDefault: v.isDefault,
+                    isActive: v.isActive,
+
+                    inventory: v.inventory
+                      ? {
+                          create: {
+                            stock: v.inventory.stock,
+                          },
+                        }
+                      : undefined,
+                  })),
+                }
+              : undefined,
+          },
         });
 
-        if (categories.length !== dto.categoryIds.length) {
-          throw new Error('Invalid categoryIds');
-        }
-      }
-
-      const product = await tx.product.create({
-        data: {
-          shopId,
-          name: dto.name,
-          slug: dto.slug,
-          description: dto.description,
-          status: dto.status,
-          isFeatured: dto.isFeatured,
-
-          categories: dto.categoryIds
-            ? {
-                create: dto.categoryIds.map((categoryId) => ({
-                  categoryId,
-                })),
-              }
-            : undefined,
-
-          variants: dto.variants
-            ? {
-                create: dto.variants.map((v) => ({
-                  sku: v.sku,
-                  name: v.name,
-                  price: v.price,
-
-                  isDefault: v.isDefault,
-                  isActive: v.isActive,
-
-                  inventory: v.inventory
-                    ? {
-                        create: {
-                          stock: v.inventory.stock,
-                        },
-                      }
-                    : undefined,
-                })),
-              }
-            : undefined,
-        },
+        return product;
       });
-
-      return product;
-    });
+      return result;
+    } catch (err: any) {}
   }
 
   async updateProduct(userId: string, id: string, dto: UpdateProductDto) {

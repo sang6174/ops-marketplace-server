@@ -31,6 +31,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
         message = res;
       } else if (typeof res === 'object' && res !== null) {
         const resObj = res as Record<string, unknown>;
+
         message = (resObj['message'] as string | string[]) ?? exception.message;
         errorCode = resObj['errorCode'] as string | undefined;
       }
@@ -44,15 +45,27 @@ export class GlobalExceptionFilter implements ExceptionFilter {
           message = 'Existing data violates unique constraint';
           errorCode = 'UNIQUE_CONSTRAINT';
           break;
+        case 'P2003': // Foreign key constraint
+          status = HttpStatus.BAD_REQUEST;
+          message = 'Existing data violates foreign key constraint';
+          errorCode = 'FOREIGN_KEY_CONSTRAINT';
+          break;
+        case 'P2016':
+          status = HttpStatus.BAD_REQUEST;
+          message =
+            "The provided value for the column is too long for the column's type.";
+          errorCode = 'VALUE_TOO_LONG';
+          break;
+        case 'P2017':
+          status = HttpStatus.BAD_REQUEST;
+          message =
+            "The provided value for the column is too short for the column's type.";
+          errorCode = 'VALUE_TOO_SHORT';
+          break;
         case 'P2025': // Record not found
           status = HttpStatus.NOT_FOUND;
           message = 'Record not found';
           errorCode = 'NOT_FOUND';
-          break;
-        case 'P2003': // Foreign key constraint
-          status = HttpStatus.BAD_REQUEST;
-          message = 'Invalid reference data';
-          errorCode = 'FOREIGN_KEY_CONSTRAINT';
           break;
         default:
           this.logger.error(

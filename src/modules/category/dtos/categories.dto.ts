@@ -9,13 +9,13 @@ import {
 import { PartialType } from '@nestjs/mapped-types';
 
 export class CreateCategoryDto {
-  @ApiProperty({ example: 'Đồ Công Nghệ' })
+  @ApiProperty({ example: 'Điện Tử' })
   @IsString()
   @IsNotEmpty({ message: 'Name of Category is not empty' })
   @MaxLength(100)
   name!: string;
 
-  @ApiProperty({ example: 'do-cong-nghe' })
+  @ApiProperty({ example: 'dien-tu' })
   @IsString()
   @IsNotEmpty({ message: 'slug is not empty' })
   @MaxLength(100)

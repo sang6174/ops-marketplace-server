@@ -8,6 +8,7 @@ import { UserRole } from '@infrastructure/generated/prisma/enums';
 import { PrismaService } from '@infrastructure/prisma/prisma.service';
 
 // ===== JwtAuthGuard =====
+
 @Injectable()
 export class JwtAuthGuard extends AuthGuard('jwt') {
   constructor(private readonly reflector: Reflector) {
@@ -27,6 +28,7 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
 }
 
 // ===== Roles and Permissions Guard =====
+
 @Injectable()
 export class RolesAndPermissionsGuard implements CanActivate {
   constructor(
@@ -46,7 +48,8 @@ export class RolesAndPermissionsGuard implements CanActivate {
     const authenticated = await this.jwtAuthGuard.canActivate(context);
     if (!authenticated) return false;
 
-    const request = context.switchToHttp().getRequest<Request>();
+    const ctx = context.switchToHttp();
+    const request = ctx.getRequest<Request>();
     const user = request.user as { roles?: string[] } | undefined;
     const roles = Array.isArray(user?.roles) ? user.roles : [];
 
@@ -99,5 +102,6 @@ export class RolesAndPermissionsGuard implements CanActivate {
 }
 
 // ===== RefreshTokenGuard =====
+
 @Injectable()
 export class RefreshTokenGuard extends AuthGuard('jwt-refresh') {}

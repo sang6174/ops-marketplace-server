@@ -12,7 +12,7 @@ import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards';
 import { CategoriesService } from './categories.service';
 import { CreateCategoryDto, UpdateCategoryDto } from './dtos/categories.dto';
-import { Public, Roles, Permissions } from '@/common/decorators';
+import { Public, Roles } from '@/common/decorators';
 import { UserRole } from '@/infrastructure/generated/prisma/enums';
 
 @ApiTags('Categories')

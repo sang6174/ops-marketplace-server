@@ -53,7 +53,7 @@ export class ShopsController {
     return this.shopsService.getMyShop(user.id);
   }
 
-  // PATCH /shops/me  (seller only)
+  // PATCH /shops/:id/me  (seller only)
   @Patch('me')
   @UseGuards(JwtAuthGuard)
   @Roles(UserRole.SELLER)
