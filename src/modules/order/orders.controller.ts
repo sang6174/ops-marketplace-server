@@ -82,10 +82,11 @@ export class OrdersController {
   @ApiBearerAuth('JWT')
   @ApiOperation({ summary: '[Seller] Update payment status' })
   updatePaymentStatus(
+    @GetUser() user: AuthUser,
     @Param('id') orderId: string,
     @Body() dto: UpdateOrderPaymentStatusDto,
   ) {
-    return this.ordersService.updatePaymentStatus(orderId, dto);
+    return this.ordersService.updatePaymentStatus(user.id, orderId, dto);
   }
 
   @Get('shops/me')

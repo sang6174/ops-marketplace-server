@@ -310,9 +310,13 @@ export class ProductsService {
   ) {
     const shopId = await this.getShopId(userId);
     await this.checkProductOwnership(productId, shopId);
-    await this.checkVariantOwnership(variantId, shopId, productId);
+    const variant = await this.checkVariantOwnership(
+      variantId,
+      shopId,
+      productId,
+    );
 
-    return this.updateVariantData(variantId, dto);
+    return this.updateVariantData(variant, dto);
   }
 
   async updateVariantById(
@@ -321,9 +325,9 @@ export class ProductsService {
     dto: UpdateVariantDto,
   ) {
     const shopId = await this.getShopId(userId);
-    await this.checkVariantOwnership(variantId, shopId);
+    const variant = await this.checkVariantOwnership(variantId, shopId);
 
-    return this.updateVariantData(variantId, dto);
+    return this.updateVariantData(variant, dto);
   }
 
   async deleteVariant(userId: string, productId: string, variantId: string) {
@@ -531,25 +535,72 @@ export class ProductsService {
     });
   }
 
-  private async updateVariantData(variantId: string, dto: UpdateVariantDto) {
-    return this.prisma.productVariant.update({
-      where: { id: variantId },
-      data: {
-        sku: dto.sku,
-        name: dto.name,
-        price: dto.price,
-        isDefault: dto.isDefault,
-        isActive: dto.isActive,
-        inventory: dto.inventory
-          ? {
-              upsert: {
-                create: { stock: dto.inventory.stock },
-                update: { stock: dto.inventory.stock },
-              },
-            }
-          : undefined,
-      },
-      include: this.variantInclude(),
+  private async updateVariantData(
+    variant: { id: string; productId: string; shopId: string },
+    dto: UpdateVariantDto,
+  ) {
+    return this.prisma.$transaction(async (tx) => {
+      if (dto.isDefault) {
+        await tx.productVariant.updateMany({
+          where: {
+            productId: variant.productId,
+            shopId: variant.shopId,
+            NOT: { id: variant.id },
+          },
+          data: { isDefault: false },
+        });
+      }
+
+      const updated = await tx.productVariant.update({
+        where: { id: variant.id },
+        data: {
+          sku: dto.sku,
+          name: dto.name,
+          price: dto.price,
+          isDefault: dto.isDefault,
+          isActive: dto.isActive,
+          inventory: dto.inventory
+            ? {
+                upsert: {
+                  create: { stock: dto.inventory.stock },
+                  update: { stock: dto.inventory.stock },
+                },
+              }
+            : undefined,
+        },
+      });
+
+      if (dto.attributes) {
+        await tx.variantAttribute.deleteMany({
+          where: { variantId: variant.id },
+        });
+
+        if (dto.attributes.length) {
+          const attributeValueIds = dto.attributes.map(
+            (item) => item.attributeValueId,
+          );
+          const existingValues = await tx.attributeValue.findMany({
+            where: { id: { in: attributeValueIds } },
+            select: { id: true },
+          });
+          if (existingValues.length !== attributeValueIds.length) {
+            throw new BadRequestException('Invalid attributeValueId');
+          }
+
+          await tx.variantAttribute.createMany({
+            data: attributeValueIds.map((attributeValueId) => ({
+              variantId: variant.id,
+              attributeValueId,
+            })),
+            skipDuplicates: true,
+          });
+        }
+      }
+
+      return tx.productVariant.findUnique({
+        where: { id: updated.id },
+        include: this.variantInclude(),
+      });
     });
   }
 
