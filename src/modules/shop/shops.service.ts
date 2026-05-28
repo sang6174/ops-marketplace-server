@@ -1,5 +1,10 @@
 // src/modules/shop/shops.service.ts
 import { Injectable } from '@nestjs/common';
+import {
+  OrderStatus,
+  PaymentStatus,
+  ProductStatus,
+} from '@infrastructure/generated/prisma/enums';
 import { PrismaService } from '@infrastructure/prisma/prisma.service';
 import { toPrismaPage } from '@common/utils';
 import {
@@ -8,7 +13,12 @@ import {
   ResourceNotFoundException,
 } from '@common/exceptions';
 import { paginate } from '@common/dtos/pagination.dto';
-import { CreateShopDto, UpdateShopDto, QueryShopsDto } from './dtos/shop.dto';
+import {
+  CreateShopDto,
+  UpdateShopDto,
+  QueryShopsDto,
+  QueryShopProductsDto,
+} from './dtos/shop.dto';
 
 @Injectable()
 export class ShopsService {
@@ -25,9 +35,13 @@ export class ShopsService {
     });
   }
 
+  async createMyShop(ownerId: string, dto: CreateShopDto) {
+    return this.create(ownerId, dto);
+  }
+
   async getMyShop(ownerId: string) {
-    const shop = await this.prisma.shop.findUnique({
-      where: { ownerId },
+    const shop = await this.prisma.shop.findFirst({
+      where: { ownerId, deletedAt: null },
       include: { _count: { select: { products: true, orderItems: true } } },
     });
     if (!shop) throw new ResourceNotFoundException('Shop');
@@ -40,6 +54,10 @@ export class ShopsService {
       where: { ownerId },
       data: dto,
     });
+  }
+
+  async updateMyShop(ownerId: string, dto: UpdateShopDto) {
+    return this.update(ownerId, dto);
   }
 
   async findAll(dto: QueryShopsDto) {
@@ -76,15 +94,127 @@ export class ShopsService {
     return shop;
   }
 
+  async findProducts(shopId: string, dto: QueryShopProductsDto) {
+    await this.findOne(shopId);
+
+    const { page = 1, limit = 20, search, status } = dto;
+    const where = {
+      shopId,
+      deletedAt: null,
+      status: status ?? ProductStatus.ACTIVE,
+      ...(search && {
+        name: { contains: search, mode: 'insensitive' as const },
+      }),
+    };
+
+    const [items, total] = await this.prisma.$transaction([
+      this.prisma.product.findMany({
+        where,
+        ...toPrismaPage(page, limit),
+        include: {
+          images: true,
+          stats: true,
+          variants: {
+            where: { deletedAt: null, isActive: true },
+            include: { inventory: true },
+          },
+        },
+        orderBy: [{ isFeatured: 'desc' }, { createdAt: 'desc' }],
+      }),
+      this.prisma.product.count({ where }),
+    ]);
+
+    return paginate(items, total, page, limit);
+  }
+
+  async getMyStats(ownerId: string) {
+    const shop = await this.prisma.shop.findFirst({
+      where: { ownerId, deletedAt: null },
+      select: { id: true },
+    });
+
+    if (!shop) throw new ResourceNotFoundException('Shop');
+
+    const [
+      totalOrders,
+      pendingOrders,
+      deliveredOrders,
+      cancelledOrders,
+      totalProducts,
+      activeProducts,
+      paidRevenue,
+    ] = await this.prisma.$transaction([
+      this.prisma.order.count({
+        where: { shopId: shop.id, deletedAt: null },
+      }),
+      this.prisma.order.count({
+        where: {
+          shopId: shop.id,
+          deletedAt: null,
+          status: OrderStatus.PENDING,
+        },
+      }),
+      this.prisma.order.count({
+        where: {
+          shopId: shop.id,
+          deletedAt: null,
+          status: OrderStatus.DELIVERED,
+        },
+      }),
+      this.prisma.order.count({
+        where: {
+          shopId: shop.id,
+          deletedAt: null,
+          status: OrderStatus.CANCELLED,
+        },
+      }),
+      this.prisma.product.count({
+        where: { shopId: shop.id, deletedAt: null },
+      }),
+      this.prisma.product.count({
+        where: {
+          shopId: shop.id,
+          deletedAt: null,
+          status: ProductStatus.ACTIVE,
+        },
+      }),
+      this.prisma.order.aggregate({
+        where: {
+          shopId: shop.id,
+          deletedAt: null,
+          paymentStatus: PaymentStatus.SUCCESS,
+        },
+        _sum: { totalPrice: true },
+      }),
+    ]);
+
+    return {
+      shopId: shop.id,
+      revenue: paidRevenue._sum.totalPrice?.toString() ?? '0',
+      orders: {
+        total: totalOrders,
+        pending: pendingOrders,
+        delivered: deliveredOrders,
+        cancelled: cancelledOrders,
+      },
+      products: {
+        total: totalProducts,
+        active: activeProducts,
+      },
+    };
+  }
+
   // ===== Internal Helpers =====
   async assertOwner(ownerId: string): Promise<void> {
-    const shop = await this.prisma.shop.findUnique({ where: { ownerId } });
+    const shop = await this.prisma.shop.findFirst({
+      where: { ownerId, deletedAt: null },
+    });
     if (!shop) throw new NotShopOwnerException();
   }
 
   async getShopIdByOwner(ownerId: string): Promise<string> {
-    const shop = await this.prisma.shop.findUnique({
-      where: { ownerId },
+    const shop = await this.prisma.shop.findFirst({
+      where: { ownerId, deletedAt: null },
       select: { id: true },
     });
     if (!shop) throw new ResourceNotFoundException('Shop');

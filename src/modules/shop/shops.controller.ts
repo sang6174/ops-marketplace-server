@@ -6,6 +6,7 @@ import {
   Param,
   Patch,
   Post,
+  Put,
   Query,
   UseGuards,
 } from '@nestjs/common';
@@ -15,7 +16,12 @@ import { GetUser, Public, Roles } from '@common/decorators';
 import { AuthUser } from '@modules/auth/dtos/auth.dto';
 import { ShopsService } from './shops.service';
 import { ProductsService } from '../product/products.service';
-import { CreateShopDto, UpdateShopDto, QueryShopsDto } from './dtos/shop.dto';
+import {
+  CreateShopDto,
+  UpdateShopDto,
+  QueryShopsDto,
+  QueryShopProductsDto,
+} from './dtos/shop.dto';
 import { JwtAuthGuard } from '../auth/guards';
 import {
   CreateProductDto,
@@ -177,11 +183,56 @@ export class ShopsController {
     return this.shopsService.findAll(dto);
   }
 
+  // GET /shops/:id/products  (public)
+  @Public()
+  @Get(':id/products')
+  @ApiOperation({ summary: 'Get products of a shop' })
+  findProducts(@Param('id') id: string, @Query() dto: QueryShopProductsDto) {
+    return this.shopsService.findProducts(id, dto);
+  }
+
   // GET /shops/:id  (public)
   @Public()
   @Get(':id')
   @ApiOperation({ summary: 'Details of a shop' })
   findOne(@Param('id') id: string) {
     return this.shopsService.findOne(id);
+  }
+}
+
+@ApiTags('Seller Shops')
+@ApiBearerAuth('JWT')
+@Controller('seller/shop')
+@UseGuards(JwtAuthGuard)
+@Roles(UserRole.SELLER)
+export class SellerShopController {
+  constructor(private readonly shopsService: ShopsService) {}
+
+  // GET /seller/shop
+  @Get()
+  @ApiOperation({ summary: '[SELLER] Get my shop' })
+  getMyShop(@GetUser() user: AuthUser) {
+    return this.shopsService.getMyShop(user.id);
+  }
+
+  // POST /seller/shop
+  @Post()
+  @ApiOperation({ summary: '[SELLER] Create my shop' })
+  createMyShop(@GetUser() user: AuthUser, @Body() dto: CreateShopDto) {
+    return this.shopsService.createMyShop(user.id, dto);
+  }
+
+  // PUT /seller/shop
+  @Put()
+  @ApiOperation({ summary: '[SELLER] Update my shop' })
+  updateMyShop(@GetUser() user: AuthUser, @Body() dto: UpdateShopDto) {
+    return this.shopsService.updateMyShop(user.id, dto);
+  }
+
+  // GET /seller/shop/stats
+  @Get('stats')
+  @ApiOperation({ summary: '[SELLER] Get my shop stats' })
+  getMyStats(@GetUser() user: AuthUser) {
+    return this.shopsService.getMyStats(user.id);
   }
 }

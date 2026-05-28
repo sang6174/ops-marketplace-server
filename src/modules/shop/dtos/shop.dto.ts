@@ -1,7 +1,14 @@
 // src/modules/shop/dtos/shop.dto.ts
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsNotEmpty, IsOptional, IsString, MaxLength } from 'class-validator';
+import {
+  IsEnum,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  MaxLength,
+} from 'class-validator';
 import { SearchPaginationDto } from '@common/dtos/pagination.dto';
+import { ProductStatus } from '@infrastructure/generated/prisma/enums';
 
 export class CreateShopDto {
   @ApiProperty({ example: 'Shop Thời Trang ABC' })
@@ -32,3 +39,10 @@ export class UpdateShopDto {
 }
 
 export class QueryShopsDto extends SearchPaginationDto {}
+
+export class QueryShopProductsDto extends SearchPaginationDto {
+  @ApiPropertyOptional({ enum: ProductStatus })
+  @IsOptional()
+  @IsEnum(ProductStatus)
+  status?: ProductStatus;
+}
