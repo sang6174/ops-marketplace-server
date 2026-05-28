@@ -1,15 +1,20 @@
 // src/module/payout/payout.service.ts
-import { Injectable, BadRequestException } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
+import {
+  LedgerAccountType,
+  LedgerEntryCategory,
+  LedgerEntryType,
+  PayoutStatus,
+} from '@infrastructure/generated/prisma/enums';
 import { PrismaService } from '@infrastructure/prisma/prisma.service';
 import { ResourceNotFoundException } from '@common/exceptions';
 import { paginate } from '@common/dtos/pagination.dto';
 import { toPrismaPage } from '@common/utils';
 import {
-  CreatePayoutDto,
-  UpdatePayoutStatusDto,
-  QueryPayoutsDto,
   BankAccountDto,
-  PayoutStatusEnum,
+  CreatePayoutDto,
+  QueryPayoutsDto,
+  UpdatePayoutStatusDto,
 } from './dtos/payout.dto';
 
 @Injectable()
@@ -17,126 +22,139 @@ export class PayoutsService {
   constructor(private readonly prisma: PrismaService) {}
 
   async getSellerBalance(sellerId: string) {
-    // Get seller's available balance from ledger
-    const availableAccount = await this.prisma.ledgerAccount.findFirst({
-      where: {
-        ownerId: sellerId,
-        type: 'SELLER_AVAILABLE',
-      },
-    });
+    await this.assertSellerShop(sellerId);
 
-    // Get seller's total balance from ledger
-    const totalAccount = await this.prisma.ledgerAccount.findFirst({
-      where: {
-        ownerId: sellerId,
-        type: 'SELLER_BALANCE',
-      },
-    });
+    const [availableAccount, totalAccount] = await Promise.all([
+      this.getLedgerAccount(sellerId, LedgerAccountType.SELLER_AVAILABLE),
+      this.getLedgerAccount(sellerId, LedgerAccountType.SELLER_BALANCE),
+    ]);
 
-    const available = availableAccount?.balance?.toString() || '0';
-    const total = totalAccount?.balance?.toString() || '0';
-
-    // Calculate pending: total - available
-    const availableNum = parseFloat(available);
-    const totalNum = parseFloat(total);
-    const pending = (totalNum - availableNum).toString();
+    const available = Number(availableAccount?.balance ?? 0);
+    const total = Number(totalAccount?.balance ?? 0);
+    const pending = Math.max(total - available, 0);
 
     return {
-      available,
-      pending,
-      total,
+      available: available.toString(),
+      pending: pending.toString(),
+      total: total.toString(),
+      accounts: {
+        availableAccountId: availableAccount?.id,
+        totalAccountId: totalAccount?.id,
+      },
     };
   }
 
-  async createPayout(sellerId: string, dto: CreatePayoutDto) {
-    // Verify seller has a shop
-    const shop = await this.prisma.shop.findUnique({
-      where: { ownerId: sellerId },
-    });
+  async getSellerBalanceHistory(sellerId: string, dto: QueryPayoutsDto) {
+    await this.assertSellerShop(sellerId);
 
-    if (!shop) {
-      throw new BadRequestException('Only sellers can create payouts');
-    }
-
-    // Verify bank account exists and belongs to seller
-    const bankAccount = await this.prisma.bankAccount.findFirst({
+    const { page = 1, limit = 20 } = dto;
+    const accounts = await this.prisma.ledgerAccount.findMany({
       where: {
-        id: dto.bankAccountId,
-        userId: sellerId,
+        ownerId: sellerId,
+        type: {
+          in: [
+            LedgerAccountType.SELLER_AVAILABLE,
+            LedgerAccountType.SELLER_BALANCE,
+          ],
+        },
       },
+      select: { id: true, type: true },
     });
 
-    if (!bankAccount) {
-      throw new ResourceNotFoundException('Bank account', dto.bankAccountId);
+    const accountIds = accounts.map((account) => account.id);
+    if (!accountIds.length) {
+      return paginate([], 0, page, limit);
     }
 
-    // Check available balance
-    // Check available balance
-    const balance = await this.getSellerBalance(sellerId);
-    const amount = parseFloat(dto.amount);
-    const available = parseFloat(balance.available);
+    const [items, total] = await this.prisma.$transaction([
+      this.prisma.ledgerEntry.findMany({
+        where: { accountId: { in: accountIds } },
+        ...toPrismaPage(page, limit),
+        orderBy: { createdAt: 'desc' },
+      }),
+      this.prisma.ledgerEntry.count({
+        where: { accountId: { in: accountIds } },
+      }),
+    ]);
 
-    if (amount > available) {
+    const accountTypeById = new Map(
+      accounts.map((account) => [account.id, account.type]),
+    );
+
+    return paginate(
+      items.map((item) => ({
+        ...item,
+        accountType: accountTypeById.get(item.accountId),
+      })),
+      total,
+      page,
+      limit,
+    );
+  }
+
+  async createPayout(sellerId: string, dto: CreatePayoutDto) {
+    await this.assertSellerShop(sellerId);
+
+    const bankAccount = dto.bankAccountId
+      ? await this.getBankAccount(dto.bankAccountId, sellerId)
+      : await this.getDefaultBankAccount(sellerId);
+
+    const amount = Number(dto.amount);
+    if (!Number.isFinite(amount) || amount <= 0) {
+      throw new BadRequestException('Payout amount must be greater than zero');
+    }
+
+    const availableAccount = await this.getLedgerAccount(
+      sellerId,
+      LedgerAccountType.SELLER_AVAILABLE,
+    );
+    if (!availableAccount) {
+      throw new BadRequestException('Seller available balance is not ready');
+    }
+
+    if (amount > Number(availableAccount.balance)) {
       throw new BadRequestException('Insufficient balance for payout');
     }
 
-    // Create payout in transaction
     return this.prisma.$transaction(async (tx) => {
-      // Create payout record
       const payout = await tx.payout.create({
         data: {
           userId: sellerId,
           amount: dto.amount,
-          status: 'PENDING',
+          status: PayoutStatus.PENDING,
           method: bankAccount.bankName,
           reference: bankAccount.accountNo,
         },
       });
 
-      // Create ledger entry for debit from available balance
-      const ledgerAccount = await tx.ledgerAccount.findFirst({
-        where: {
-          ownerId: sellerId,
-          type: 'SELLER_AVAILABLE',
+      const updatedAccount = await tx.ledgerAccount.update({
+        where: { id: availableAccount.id },
+        data: { balance: { decrement: amount } },
+      });
+
+      await tx.ledgerEntry.create({
+        data: {
+          accountId: availableAccount.id,
+          amount: dto.amount,
+          type: LedgerEntryType.DEBIT,
+          reference: payout.id,
+          transactionId: payout.id,
+          category: LedgerEntryCategory.PAYOUT,
         },
       });
 
-      if (ledgerAccount) {
-        await tx.ledgerEntry.create({
-          data: {
-            accountId: ledgerAccount.id,
-            amount: (-amount).toString(),
-            type: 'DEBIT',
-            reference: payout.id,
-            transactionId: payout.id,
-            category: 'PAYOUT',
-          },
-        });
-      }
-
-      return payout;
+      return {
+        ...payout,
+        balanceAfterRequest: updatedAccount.balance.toString(),
+      };
     });
-  }
-
-  async getPayout(payoutId: string, sellerId: string) {
-    const payout = await this.prisma.payout.findFirst({
-      where: {
-        id: payoutId,
-        userId: sellerId,
-      },
-    });
-
-    if (!payout) {
-      throw new ResourceNotFoundException('Payout', payoutId);
-    }
-
-    return payout;
   }
 
   async listPayouts(sellerId: string, dto: QueryPayoutsDto) {
-    const { page = 1, limit = 20, status } = dto;
+    await this.assertSellerShop(sellerId);
 
-    const where: any = {
+    const { page = 1, limit = 20, status } = dto;
+    const where = {
       userId: sellerId,
       ...(status && { status }),
     };
@@ -153,6 +171,23 @@ export class PayoutsService {
     return paginate(items, total, page, limit);
   }
 
+  async getPayout(payoutId: string, sellerId: string) {
+    await this.assertSellerShop(sellerId);
+
+    const payout = await this.prisma.payout.findFirst({
+      where: {
+        id: payoutId,
+        userId: sellerId,
+      },
+    });
+
+    if (!payout) {
+      throw new ResourceNotFoundException('Payout', payoutId);
+    }
+
+    return payout;
+  }
+
   async updatePayoutStatus(
     payoutId: string,
     sellerId: string,
@@ -160,21 +195,17 @@ export class PayoutsService {
   ) {
     const payout = await this.getPayout(payoutId, sellerId);
 
-    // Validate status transitions
-    if (payout.status !== 'PENDING') {
+    if (payout.status !== PayoutStatus.PENDING) {
       throw new BadRequestException(
         'Can only update status of PENDING payouts',
       );
     }
 
-    const updateData: any = {
+    const updateData = {
       status: dto.status,
       reference: dto.reference || payout.reference,
+      ...(dto.status === PayoutStatus.PAID && { paidAt: new Date() }),
     };
-
-    if (dto.status === 'PAID') {
-      updateData.paidAt = new Date();
-    }
 
     return this.prisma.$transaction(async (tx) => {
       const updated = await tx.payout.update({
@@ -182,24 +213,26 @@ export class PayoutsService {
         data: updateData,
       });
 
-      // If failed, reverse the ledger entry by crediting back to available
-      if (dto.status === 'FAILED') {
-        const availableAccount = await tx.ledgerAccount.findFirst({
-          where: {
-            ownerId: sellerId,
-            type: 'SELLER_AVAILABLE',
-          },
-        });
+      if (dto.status === PayoutStatus.FAILED) {
+        const availableAccount = await this.getLedgerAccount(
+          sellerId,
+          LedgerAccountType.SELLER_AVAILABLE,
+        );
 
         if (availableAccount) {
+          await tx.ledgerAccount.update({
+            where: { id: availableAccount.id },
+            data: { balance: { increment: payout.amount } },
+          });
+
           await tx.ledgerEntry.create({
             data: {
               accountId: availableAccount.id,
-              amount: (payout.amount as any).toString(),
-              type: 'CREDIT',
+              amount: payout.amount,
+              type: LedgerEntryType.CREDIT,
               reference: payoutId,
               transactionId: payoutId,
-              category: 'PAYOUT',
+              category: LedgerEntryCategory.PAYOUT,
             },
           });
         }
@@ -209,9 +242,9 @@ export class PayoutsService {
     });
   }
 
-  // Bank Account Management
   async createBankAccount(sellerId: string, dto: BankAccountDto) {
-    // Unset other defaults if this is default
+    await this.assertSellerShop(sellerId);
+
     if (dto.isDefault) {
       await this.prisma.bankAccount.updateMany({
         where: {
@@ -251,6 +284,8 @@ export class PayoutsService {
   }
 
   async listBankAccounts(sellerId: string) {
+    await this.assertSellerShop(sellerId);
+
     return this.prisma.bankAccount.findMany({
       where: { userId: sellerId },
       orderBy: [{ isDefault: 'desc' }, { createdAt: 'desc' }],
@@ -258,10 +293,10 @@ export class PayoutsService {
   }
 
   async setDefaultBankAccount(accountId: string, sellerId: string) {
+    await this.assertSellerShop(sellerId);
     await this.getBankAccount(accountId, sellerId);
 
     return this.prisma.$transaction(async (tx) => {
-      // Unset other defaults
       await tx.bankAccount.updateMany({
         where: {
           userId: sellerId,
@@ -272,7 +307,6 @@ export class PayoutsService {
         },
       });
 
-      // Set this as default
       return tx.bankAccount.update({
         where: { id: accountId },
         data: { isDefault: true },
@@ -281,9 +315,9 @@ export class PayoutsService {
   }
 
   async deleteBankAccount(accountId: string, sellerId: string) {
+    await this.assertSellerShop(sellerId);
     const account = await this.getBankAccount(accountId, sellerId);
 
-    // Cannot delete default account
     if (account.isDefault) {
       throw new BadRequestException(
         'Cannot delete default bank account. Set another as default first.',
@@ -293,5 +327,43 @@ export class PayoutsService {
     return this.prisma.bankAccount.delete({
       where: { id: accountId },
     });
+  }
+
+  private async assertSellerShop(sellerId: string) {
+    const shop = await this.prisma.shop.findFirst({
+      where: { ownerId: sellerId, deletedAt: null },
+      select: { id: true },
+    });
+
+    if (!shop) {
+      throw new BadRequestException('Only sellers can access payout APIs');
+    }
+
+    return shop;
+  }
+
+  private async getLedgerAccount(sellerId: string, type: LedgerAccountType) {
+    return this.prisma.ledgerAccount.findUnique({
+      where: {
+        ownerId_type: {
+          ownerId: sellerId,
+          type,
+        },
+      },
+    });
+  }
+
+  private async getDefaultBankAccount(sellerId: string) {
+    const bankAccount = await this.prisma.bankAccount.findFirst({
+      where: { userId: sellerId, isDefault: true },
+    });
+
+    if (!bankAccount) {
+      throw new BadRequestException(
+        'Default bank account is required for payout request',
+      );
+    }
+
+    return bankAccount;
   }
 }

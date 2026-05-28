@@ -7,6 +7,8 @@ import { toPrismaPage } from '@common/utils';
 import {
   AccountStatus,
   LedgerAccountType,
+  LedgerEntryCategory,
+  LedgerEntryType,
   PaymentStatus,
   ProductStatus,
   UserRole,
@@ -604,6 +606,41 @@ export class AdminService {
           paidAt: status === 'PAID' ? new Date() : undefined,
         },
       });
+
+      const accountType =
+        status === 'PAID'
+          ? LedgerAccountType.SELLER_BALANCE
+          : LedgerAccountType.SELLER_AVAILABLE;
+      const entryType =
+        status === 'PAID' ? LedgerEntryType.DEBIT : LedgerEntryType.CREDIT;
+      const balanceDelta =
+        status === 'PAID' ? -Number(payout.amount) : Number(payout.amount);
+      const account = await tx.ledgerAccount.findUnique({
+        where: {
+          ownerId_type: {
+            ownerId: payout.userId,
+            type: accountType,
+          },
+        },
+      });
+
+      if (account) {
+        await tx.ledgerAccount.update({
+          where: { id: account.id },
+          data: { balance: { increment: balanceDelta } },
+        });
+
+        await tx.ledgerEntry.create({
+          data: {
+            accountId: account.id,
+            amount: payout.amount,
+            type: entryType,
+            reference: payout.id,
+            transactionId: payout.id,
+            category: LedgerEntryCategory.PAYOUT,
+          },
+        });
+      }
 
       await tx.auditLog.create({
         data: {

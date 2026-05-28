@@ -40,8 +40,8 @@ export class CreatePayoutDto {
   amount!: string;
 
   @IsString()
-  @IsNotEmpty()
-  bankAccountId!: string;
+  @IsOptional()
+  bankAccountId?: string;
 }
 
 export class UpdatePayoutStatusDto {
