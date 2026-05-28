@@ -6,12 +6,17 @@ import {
   Param,
   Patch,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards';
 import { CategoriesService } from './categories.service';
-import { CreateCategoryDto, UpdateCategoryDto } from './dtos/categories.dto';
+import {
+  CreateCategoryDto,
+  QueryCategoryProductsDto,
+  UpdateCategoryDto,
+} from './dtos/categories.dto';
 import { Public, Roles } from '@/common/decorators';
 import { UserRole } from '@/infrastructure/generated/prisma/enums';
 
@@ -32,6 +37,27 @@ export class CategoriesController {
   @ApiOperation({ summary: 'Get children of a category' })
   getChildren(@Param('id') id: string) {
     return this.service.getChildren(id);
+  }
+
+  @Public()
+  @Get(':id/products')
+  @ApiOperation({ summary: 'Get products by category' })
+  getProducts(@Param('id') id: string, @Query() dto: QueryCategoryProductsDto) {
+    return this.service.getProducts(id, dto);
+  }
+
+  @Public()
+  @Get(':id/attributes')
+  @ApiOperation({ summary: 'Get attributes of a category' })
+  getAttributes(@Param('id') id: string) {
+    return this.service.getAttributes(id);
+  }
+
+  @Public()
+  @Get(':id')
+  @ApiOperation({ summary: 'Get category details' })
+  getCategory(@Param('id') id: string) {
+    return this.service.getCategory(id);
   }
 
   @ApiBearerAuth('JWT')
