@@ -817,19 +817,26 @@ model LedgerEntry {
 //
 
 model Shipping {
-  id           String         @id @default(uuid())
-  orderId      String         @unique
-  status       ShippingStatus
-  trackingCode String?
-  provider     String?
+  id                 String         @id @default(uuid())
+  orderId            String         @unique
+  status             ShippingStatus
+  trackingCode       String?
+  provider           String?
+  fee                Decimal?       @db.Decimal(12, 2)
+  labelUrl           String?
+  providerRequest    Json?
+  providerResponse   Json?
+  lastWebhookPayload Json?
 
   createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   order Order @relation(fields: [orderId], references: [id])
 
   @@index([orderId])
   @@index([status])
   @@index([trackingCode])
+  @@index([provider])
   @@map("shippings")
 }
 

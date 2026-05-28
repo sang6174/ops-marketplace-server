@@ -9,6 +9,7 @@ import {
   databaseConfig,
   mailConfig,
   paymentConfig,
+  shippingConfig,
 } from './configs/index';
 import { PrismaModule } from '@infrastructure/prisma/prisma.module';
 import { GlobalExceptionFilter } from '@common/filters/global-exception.filter';
@@ -27,13 +28,21 @@ import { OrdersModule } from './modules/order/orders.module';
 import { PaymentsModule } from './modules/payment/payments.module';
 import { PayoutsModule } from './modules/payout/payouts.module';
 import { LedgerModule } from './modules/ledger/ledger.module';
+import { ShippingModule } from './modules/shipping/shipping.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
       cache: true,
-      load: [appConfig, jwtConfig, databaseConfig, mailConfig, paymentConfig],
+      load: [
+        appConfig,
+        jwtConfig,
+        databaseConfig,
+        mailConfig,
+        paymentConfig,
+        shippingConfig,
+      ],
     }),
 
     PrismaModule,
@@ -48,6 +57,7 @@ import { LedgerModule } from './modules/ledger/ledger.module';
     PaymentsModule,
     PayoutsModule,
     LedgerModule,
+    ShippingModule,
   ],
 
   providers: [
