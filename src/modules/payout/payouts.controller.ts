@@ -11,13 +11,13 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { GetUser } from '@common/decorators';
+import { GetUser, Roles } from '@common/decorators';
 import { AuthUser } from '@modules/auth/dtos/auth.dto';
+import { UserRole } from '@infrastructure/generated/prisma/enums';
 import { JwtAuthGuard } from '../auth/guards';
 import { PayoutsService } from './payouts.service';
 import {
   CreatePayoutDto,
-  UpdatePayoutStatusDto,
   QueryPayoutsDto,
   BankAccountDto,
 } from './dtos/payout.dto';
@@ -41,34 +41,6 @@ export class PayoutsController {
   @ApiOperation({ summary: 'List seller payouts' })
   listPayouts(@GetUser() user: AuthUser, @Query() dto: QueryPayoutsDto) {
     return this.payoutsService.listPayouts(user.id, dto);
-  }
-
-  @Get(':payoutId')
-  @UseGuards(JwtAuthGuard)
-  @ApiBearerAuth('JWT')
-  @ApiOperation({ summary: 'Get payout details' })
-  getPayout(@Param('payoutId') payoutId: string, @GetUser() user: AuthUser) {
-    return this.payoutsService.getPayout(payoutId, user.id);
-  }
-
-  @Post()
-  @UseGuards(JwtAuthGuard)
-  @ApiBearerAuth('JWT')
-  @ApiOperation({ summary: 'Create payout request' })
-  createPayout(@GetUser() user: AuthUser, @Body() dto: CreatePayoutDto) {
-    return this.payoutsService.createPayout(user.id, dto);
-  }
-
-  @Patch(':payoutId/status')
-  @UseGuards(JwtAuthGuard)
-  @ApiBearerAuth('JWT')
-  @ApiOperation({ summary: 'Update payout status (admin only)' })
-  updatePayoutStatus(
-    @Param('payoutId') payoutId: string,
-    @GetUser() user: AuthUser,
-    @Body() dto: UpdatePayoutStatusDto,
-  ) {
-    return this.payoutsService.updatePayoutStatus(payoutId, user.id, dto);
   }
 
   // Bank Account Endpoints
@@ -119,5 +91,60 @@ export class PayoutsController {
     @GetUser() user: AuthUser,
   ) {
     return this.payoutsService.deleteBankAccount(accountId, user.id);
+  }
+
+  @Get(':payoutId')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('JWT')
+  @ApiOperation({ summary: 'Get payout details' })
+  getPayout(@Param('payoutId') payoutId: string, @GetUser() user: AuthUser) {
+    return this.payoutsService.getPayout(payoutId, user.id);
+  }
+
+  @Post()
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('JWT')
+  @ApiOperation({ summary: 'Create payout request' })
+  createPayout(@GetUser() user: AuthUser, @Body() dto: CreatePayoutDto) {
+    return this.payoutsService.createPayout(user.id, dto);
+  }
+}
+
+@ApiTags('Seller Payouts')
+@ApiBearerAuth('JWT')
+@Controller('seller')
+@UseGuards(JwtAuthGuard)
+@Roles(UserRole.SELLER)
+export class SellerPayoutsController {
+  constructor(private readonly payoutsService: PayoutsService) {}
+
+  @Get('balance')
+  @ApiOperation({ summary: '[SELLER] Get current balance' })
+  getBalance(@GetUser() user: AuthUser) {
+    return this.payoutsService.getSellerBalance(user.id);
+  }
+
+  @Get('balance/history')
+  @ApiOperation({ summary: '[SELLER] Get balance history' })
+  getBalanceHistory(@GetUser() user: AuthUser, @Query() dto: QueryPayoutsDto) {
+    return this.payoutsService.getSellerBalanceHistory(user.id, dto);
+  }
+
+  @Post('payouts/request')
+  @ApiOperation({ summary: '[SELLER] Request payout' })
+  requestPayout(@GetUser() user: AuthUser, @Body() dto: CreatePayoutDto) {
+    return this.payoutsService.createPayout(user.id, dto);
+  }
+
+  @Get('payouts')
+  @ApiOperation({ summary: '[SELLER] List payouts' })
+  listPayouts(@GetUser() user: AuthUser, @Query() dto: QueryPayoutsDto) {
+    return this.payoutsService.listPayouts(user.id, dto);
+  }
+
+  @Get('payouts/:id')
+  @ApiOperation({ summary: '[SELLER] Get payout detail' })
+  getPayout(@GetUser() user: AuthUser, @Param('id') payoutId: string) {
+    return this.payoutsService.getPayout(payoutId, user.id);
   }
 }

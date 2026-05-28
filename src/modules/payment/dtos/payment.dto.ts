@@ -6,11 +6,14 @@ import {
   IsOptional,
   IsEnum,
   IsArray,
+  IsDecimal,
+  IsIn,
 } from 'class-validator';
 import {
   PaymentMethod,
   PaymentStatus,
   PaymentProvider,
+  RefundStatus,
 } from '@infrastructure/generated/prisma/enums';
 import { SearchPaginationDto } from '@common/dtos/pagination.dto';
 
@@ -116,4 +119,66 @@ export class QueryPaymentsDto extends SearchPaginationDto {
   @IsOptional()
   @IsEnum(PaymentMethod)
   method?: PaymentMethod;
+}
+
+export class InitiatePaymentDto extends CreatePaymentDto {}
+
+export class PaymentWebhookDto {
+  @ApiPropertyOptional({ description: 'Payment ID in this system' })
+  @IsOptional()
+  @IsString()
+  paymentId?: string;
+
+  @ApiPropertyOptional({ description: 'Provider reference ID' })
+  @IsOptional()
+  @IsString()
+  providerRef?: string;
+
+  @ApiPropertyOptional({ enum: ['SUCCESS', 'FAILED', 'PENDING'] })
+  @IsOptional()
+  @IsIn(['SUCCESS', 'FAILED', 'PENDING'])
+  status?: PaymentStatus;
+}
+
+export class ConfirmCodPaymentDto {
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  paymentId?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  orderId?: string;
+}
+
+export class RequestRefundDto {
+  @ApiProperty()
+  @IsString()
+  @IsNotEmpty()
+  orderId!: string;
+
+  @ApiPropertyOptional({ example: '100000' })
+  @IsOptional()
+  @IsDecimal()
+  amount?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  reason?: string;
+}
+
+export class RejectRefundDto {
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  reason?: string;
+}
+
+export class QueryRefundsDto extends SearchPaginationDto {
+  @ApiPropertyOptional({ enum: RefundStatus })
+  @IsOptional()
+  @IsEnum(RefundStatus)
+  status?: RefundStatus;
 }

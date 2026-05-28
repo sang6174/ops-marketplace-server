@@ -80,6 +80,13 @@ enum PaymentProvider {
   PAYPAL
 }
 
+enum RefundStatus {
+  REQUESTED
+  APPROVED
+  REJECTED
+  REFUNDED
+}
+
 enum LedgerAccountType {
   PLATFORM_MAIN
   PLATFORM_FEE
@@ -187,6 +194,7 @@ model User {
   bankAccounts    BankAccount[]
   payouts         Payout[]
   payments        Payment[]
+  refunds         Refund[]
   ledger_accounts LedgerAccount[]
 
   buyingRooms  ChatRoom[] @relation("Buyer")
@@ -313,6 +321,7 @@ model Shop {
   owner      User        @relation(fields: [ownerId], references: [id])
   products   Product[]
   orderItems OrderItem[]
+  refunds    Refund[]
 
   @@index([deletedAt])
   @@index([ownerId])
@@ -638,6 +647,7 @@ model Order {
   items        OrderItem[]
   shipping     Shipping?
   paymentItems PaymentItem[]
+  refunds      Refund[]
 
   @@index([userId])
   @@index([shopId])
@@ -730,6 +740,36 @@ model PaymentItem {
   @@unique([paymentId, orderId])
   @@index([orderId])
   @@map("payment_items")
+}
+
+model Refund {
+  id      String @id @default(uuid())
+  userId  String
+  orderId String
+  shopId  String
+
+  amount Decimal @db.Decimal(12, 2)
+  reason String?
+  status RefundStatus @default(REQUESTED)
+
+  rejectedReason String?
+  processedAt    DateTime?
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  user  User  @relation(fields: [userId], references: [id])
+  order Order @relation(fields: [orderId], references: [id])
+  shop  Shop  @relation(fields: [shopId], references: [id])
+
+  @@index([userId])
+  @@index([orderId])
+  @@index([shopId])
+  @@index([status])
+  @@index([createdAt])
+  @@index([deletedAt])
+  @@map("refunds")
 }
 
 //
