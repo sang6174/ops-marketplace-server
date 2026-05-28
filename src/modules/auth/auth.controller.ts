@@ -13,13 +13,59 @@ import { Request, Response } from 'express';
 
 import { Public, GetUser } from '@common/decorators';
 import { AuthService } from './auth.service';
-import { RegisterDto, LoginDto, AuthUser } from './dtos/auth.dto';
+import {
+  RegisterDto,
+  LoginDto,
+  AuthUser,
+  VerifyEmailDto,
+  ForgotPasswordDto,
+  ResetPasswordDto,
+  ChangePasswordDto,
+} from './dtos/auth.dto';
 import { JwtAuthGuard, RefreshTokenGuard } from './guards';
 
 @ApiTags('Auth')
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
+
+  private setRefreshCookies(
+    res: Response,
+    refreshToken: string,
+    sessionId: string,
+  ) {
+    const maxAge = this.authService.getRefreshTokenMaxAgeMs();
+
+    res.cookie('refreshToken', refreshToken, {
+      httpOnly: true,
+      secure: this.authService.isProduction(),
+      sameSite: 'strict',
+      maxAge,
+    });
+
+    res.cookie('sessionId', sessionId, {
+      httpOnly: true,
+      secure: this.authService.isProduction(),
+      sameSite: 'strict',
+      maxAge,
+    });
+  }
+
+  private clearRefreshCookies(res: Response) {
+    res.cookie('refreshToken', '', {
+      httpOnly: true,
+      secure: this.authService.isProduction(),
+      sameSite: 'strict',
+      maxAge: 0,
+    });
+
+    res.cookie('sessionId', '', {
+      httpOnly: true,
+      secure: this.authService.isProduction(),
+      sameSite: 'strict',
+      maxAge: 0,
+    });
+  }
 
   // ===== POST /auth/register =====
   @Public()
@@ -44,19 +90,7 @@ export class AuthController {
       ipAddress: req.ip,
     });
 
-    res.cookie('refreshToken', result.refreshToken, {
-      httpOnly: true,
-      secure: false,
-      sameSite: 'strict',
-      maxAge: parseInt(process.env.JWT_REFRESH_EXPIRES_IN_SECONDS!),
-    });
-
-    res.cookie('sessionId', result.sessionId, {
-      httpOnly: true,
-      secure: false,
-      sameSite: 'strict',
-      maxAge: parseInt(process.env.JWT_REFRESH_EXPIRES_IN_SECONDS!),
-    });
+    this.setRefreshCookies(res, result.refreshToken, result.sessionId);
 
     return {
       user: result.user,
@@ -81,19 +115,7 @@ export class AuthController {
 
     const result = await this.authService.refresh(userId, sessionId);
 
-    res.cookie('refreshToken', result.refreshToken, {
-      httpOnly: true,
-      secure: false,
-      sameSite: 'strict',
-      maxAge: parseInt(process.env.JWT_REFRESH_EXPIRES_IN_SECONDS!),
-    });
-
-    res.cookie('sessionId', result.sessionId, {
-      httpOnly: true,
-      secure: false,
-      sameSite: 'strict',
-      maxAge: parseInt(process.env.JWT_REFRESH_EXPIRES_IN_SECONDS!),
-    });
+    this.setRefreshCookies(res, result.refreshToken, result.sessionId);
 
     return {
       accessToken: result.accessToken,
@@ -105,29 +127,51 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   @ApiBearerAuth('JWT')
   @UseGuards(JwtAuthGuard)
-  @ApiBearerAuth()
   @ApiOperation({ summary: "Log out of user's account" })
   async logout(
     @GetUser() user: AuthUser,
     @Res({ passthrough: true }) res: Response,
   ) {
     const result = await this.authService.logout(user);
-    this.authService.logout(user);
-
-    res.cookie('refreshToken', '', {
-      httpOnly: true,
-      secure: false,
-      sameSite: 'strict',
-      maxAge: 0,
-    });
-
-    res.cookie('sessionId', '', {
-      httpOnly: true,
-      secure: false,
-      sameSite: 'strict',
-      maxAge: 0,
-    });
+    this.clearRefreshCookies(res);
 
     return result;
+  }
+
+  // ===== POST /auth/verify-email =====
+  @Public()
+  @Post('verify-email')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Verify email address' })
+  verifyEmail(@Body() dto: VerifyEmailDto) {
+    return this.authService.verifyEmail(dto);
+  }
+
+  // ===== POST /auth/forgot-password =====
+  @Public()
+  @Post('forgot-password')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Request password reset token' })
+  forgotPassword(@Body() dto: ForgotPasswordDto) {
+    return this.authService.forgotPassword(dto);
+  }
+
+  // ===== POST /auth/reset-password =====
+  @Public()
+  @Post('reset-password')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Reset password using token' })
+  resetPassword(@Body() dto: ResetPasswordDto) {
+    return this.authService.resetPassword(dto);
+  }
+
+  // ===== POST /auth/change-password =====
+  @Post('change-password')
+  @HttpCode(HttpStatus.OK)
+  @ApiBearerAuth('JWT')
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: 'Change password for authenticated user' })
+  changePassword(@GetUser() user: AuthUser, @Body() dto: ChangePasswordDto) {
+    return this.authService.changePassword(user, dto);
   }
 }

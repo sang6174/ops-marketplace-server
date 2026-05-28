@@ -1,5 +1,10 @@
 // src/modules/auth/auth.service.ts
-import { Injectable, Logger, UnauthorizedException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  Logger,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import {
@@ -19,6 +24,10 @@ import {
 import {
   RegisterDto,
   LoginDto,
+  VerifyEmailDto,
+  ForgotPasswordDto,
+  ResetPasswordDto,
+  ChangePasswordDto,
   JwtPayload,
   AuthUser,
   TokenType,
@@ -29,6 +38,8 @@ import { SALT_ROUNDS } from '../../common/constants';
 @Injectable()
 export class AuthService {
   private readonly logger = new Logger(AuthService.name);
+  private readonly verifyTokenTtlMs = 24 * 60 * 60 * 1000;
+  private readonly resetTokenTtlMs = 15 * 60 * 1000;
 
   constructor(
     private readonly prisma: PrismaService,
@@ -48,6 +59,7 @@ export class AuthService {
     }
 
     const hashedPassword = await hashPassword(dto.password);
+    const verificationToken = this.createToken('verify');
 
     const user = await this.prisma.$transaction(async (tx) => {
       const newUser = await tx.user.create({
@@ -55,7 +67,7 @@ export class AuthService {
           email: dto.email,
           password: hashedPassword,
           name: dto.name,
-          status: AccountStatus.ACTIVE,
+          status: AccountStatus.PENDING,
         },
       });
 
@@ -63,11 +75,20 @@ export class AuthService {
         data: { userId: newUser.id, role: UserRole.BUYER },
       });
 
+      await tx.passwordReset.create({
+        data: {
+          userId: newUser.id,
+          token: verificationToken,
+          expiresAt: new Date(Date.now() + this.verifyTokenTtlMs),
+        },
+      });
+
       return newUser;
     });
 
     return {
       user: { id: user.id, email: user.email, name: user.name },
+      verificationToken,
     };
   }
 
@@ -144,7 +165,167 @@ export class AuthService {
     });
   }
 
+  // ===== Verify Email =====
+
+  async verifyEmail(dto: VerifyEmailDto) {
+    const token = await this.prisma.passwordReset.findUnique({
+      where: { token: dto.token },
+      include: { user: true },
+    });
+
+    if (!token || token.used || !token.token.startsWith('verify_')) {
+      throw new BadRequestException('Token xác thực email không hợp lệ');
+    }
+
+    if (new Date() > token.expiresAt) {
+      throw new BadRequestException('Token xác thực email đã hết hạn');
+    }
+
+    if (token.user.status === AccountStatus.SUSPENDED) {
+      throw new AccountSuspendedException();
+    }
+
+    await this.prisma.$transaction([
+      this.prisma.user.update({
+        where: { id: token.userId },
+        data: { status: AccountStatus.ACTIVE },
+      }),
+      this.prisma.passwordReset.update({
+        where: { id: token.id },
+        data: { used: true },
+      }),
+    ]);
+
+    return { message: 'Xác thực email thành công' };
+  }
+
+  // ===== Forgot Password =====
+
+  async forgotPassword(dto: ForgotPasswordDto) {
+    const user = await this.prisma.user.findUnique({
+      where: { email: dto.email },
+    });
+
+    if (!user) {
+      return {
+        message: 'Nếu email tồn tại, token đặt lại mật khẩu đã được tạo',
+      };
+    }
+
+    if (user.status === AccountStatus.SUSPENDED) {
+      throw new AccountSuspendedException();
+    }
+
+    const resetToken = this.createToken('reset');
+
+    await this.prisma.passwordReset.create({
+      data: {
+        userId: user.id,
+        token: resetToken,
+        expiresAt: new Date(Date.now() + this.resetTokenTtlMs),
+      },
+    });
+
+    return {
+      message: 'Token đặt lại mật khẩu đã được tạo',
+      resetToken,
+    };
+  }
+
+  // ===== Reset Password =====
+
+  async resetPassword(dto: ResetPasswordDto) {
+    const token = await this.prisma.passwordReset.findUnique({
+      where: { token: dto.token },
+      include: { user: true },
+    });
+
+    if (!token || token.used || !token.token.startsWith('reset_')) {
+      throw new BadRequestException('Token đặt lại mật khẩu không hợp lệ');
+    }
+
+    if (new Date() > token.expiresAt) {
+      throw new BadRequestException('Token đặt lại mật khẩu đã hết hạn');
+    }
+
+    if (token.user.status === AccountStatus.SUSPENDED) {
+      throw new AccountSuspendedException();
+    }
+
+    const hashedPassword = await hashPassword(dto.newPassword);
+
+    await this.prisma.$transaction([
+      this.prisma.user.update({
+        where: { id: token.userId },
+        data: { password: hashedPassword },
+      }),
+      this.prisma.passwordReset.update({
+        where: { id: token.id },
+        data: { used: true },
+      }),
+      this.prisma.session.updateMany({
+        where: { userId: token.userId, revokedAt: null },
+        data: { revokedAt: new Date() },
+      }),
+    ]);
+
+    return { message: 'Đặt lại mật khẩu thành công' };
+  }
+
+  // ===== Change Password =====
+
+  async changePassword(user: AuthUser, dto: ChangePasswordDto) {
+    const existing = await this.prisma.user.findUnique({
+      where: { id: user.id },
+    });
+
+    if (!existing?.password) {
+      throw new UnauthorizedException('Người dùng không tồn tại');
+    }
+
+    const isMatch = await comparePassword(
+      dto.currentPassword,
+      existing.password,
+    );
+    if (!isMatch) {
+      throw new UnauthorizedException('Mật khẩu hiện tại không đúng');
+    }
+
+    const hashedPassword = await hashPassword(dto.newPassword);
+
+    await this.prisma.$transaction([
+      this.prisma.user.update({
+        where: { id: user.id },
+        data: { password: hashedPassword },
+      }),
+      this.prisma.session.updateMany({
+        where: {
+          userId: user.id,
+          revokedAt: null,
+          NOT: { id: user.sessionId },
+        },
+        data: { revokedAt: new Date() },
+      }),
+    ]);
+
+    return { message: 'Đổi mật khẩu thành công' };
+  }
+
+  getRefreshTokenMaxAgeMs(): number {
+    return (
+      this.configService.get<number>('jwt.refreshExpiresInSeconds')! * 1000
+    );
+  }
+
+  isProduction(): boolean {
+    return this.configService.get<boolean>('app.isProduction', false);
+  }
+
   // ===== Internal helpers =====
+  private createToken(type: 'verify' | 'reset'): string {
+    return `${type}_${randomUUID()}`;
+  }
+
   private async generateTokensAndSession(
     userId: string,
     email: string,

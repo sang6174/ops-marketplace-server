@@ -4,13 +4,12 @@ import {
   UserRole,
 } from '@infrastructure/generated/prisma/enums';
 import { PrismaService } from '@infrastructure/prisma/prisma.service';
-import { comparePassword, hashPassword, exclude } from '@common/utils';
+import { exclude } from '@common/utils';
 import {
   ResourceNotFoundException,
   ResourceAlreadyExistsException,
 } from '@common/exceptions';
-import { UnauthorizedException } from '@nestjs/common';
-import { UpdateProfileDto, ChangePasswordDto } from './dto';
+import { UpdateProfileDto } from './dto';
 
 @Injectable()
 export class UsersService {
@@ -39,23 +38,6 @@ export class UsersService {
       },
     });
     return exclude(user, ['password']);
-  }
-
-  async changePassword(userId: string, dto: ChangePasswordDto) {
-    const user = await this.prisma.user.findUnique({ where: { id: userId } });
-    if (!user?.password) throw new ResourceNotFoundException('User', userId);
-
-    const isMatch = await comparePassword(dto.currentPassword, user.password);
-    if (!isMatch)
-      throw new UnauthorizedException('Mật khẩu hiện tại không đúng');
-
-    const hashed = await hashPassword(dto.newPassword);
-    await this.prisma.user.update({
-      where: { id: userId },
-      data: { password: hashed },
-    });
-
-    return { message: 'Đổi mật khẩu thành công' };
   }
 
   async becomeSeller(userId: string) {

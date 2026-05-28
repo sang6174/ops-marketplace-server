@@ -12,7 +12,7 @@ import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { GetUser } from '@common/decorators';
 import { AuthUser } from '@modules/auth/dtos/auth.dto';
 import { UsersService } from './users.service';
-import { UpdateProfileDto, ChangePasswordDto } from './dto';
+import { UpdateProfileDto } from './dto';
 import { JwtAuthGuard } from '../auth/guards';
 
 @ApiTags('Users')
@@ -35,15 +35,6 @@ export class UsersController {
   @UseGuards(JwtAuthGuard)
   updateProfile(@GetUser() user: AuthUser, @Body() dto: UpdateProfileDto) {
     return this.usersService.updateProfile(user.id, dto);
-  }
-
-  // PATCH /users/me/password
-  @Patch('me/password')
-  @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Change password' })
-  @UseGuards(JwtAuthGuard)
-  changePassword(@GetUser() user: AuthUser, @Body() dto: ChangePasswordDto) {
-    return this.usersService.changePassword(user.id, dto);
   }
 
   // POST /users/me/become-seller

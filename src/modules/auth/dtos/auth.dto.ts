@@ -47,6 +47,43 @@ export class RefreshTokenDto {
   refreshToken!: string;
 }
 
+export class VerifyEmailDto {
+  @ApiProperty({ example: 'verify_7f6b8b4e-ec44-4f71-8e3c-9f312f3dfed2' })
+  @IsString()
+  @IsNotEmpty()
+  token!: string;
+}
+
+export class ForgotPasswordDto {
+  @ApiProperty({ example: 'thanhsang@gmail.com' })
+  @IsEmail({}, { message: 'Email không hợp lệ' })
+  email!: string;
+}
+
+export class ResetPasswordDto {
+  @ApiProperty({ example: 'reset_7f6b8b4e-ec44-4f71-8e3c-9f312f3dfed2' })
+  @IsString()
+  @IsNotEmpty()
+  token!: string;
+
+  @ApiProperty({ example: 'thanhsang1234' })
+  @IsString()
+  @MinLength(8, { message: 'Mật khẩu phải có ít nhất 8 ký tự' })
+  newPassword!: string;
+}
+
+export class ChangePasswordDto {
+  @ApiProperty({ example: 'thanhsang' })
+  @IsString()
+  @IsNotEmpty()
+  currentPassword!: string;
+
+  @ApiProperty({ example: 'thanhsang1234' })
+  @IsString()
+  @MinLength(8, { message: 'Mật khẩu phải có ít nhất 8 ký tự' })
+  newPassword!: string;
+}
+
 // ===== JWT Payload =====
 export interface JwtPayload {
   sub: string;
