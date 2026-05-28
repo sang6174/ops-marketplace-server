@@ -8,6 +8,7 @@ import {
   jwtConfig,
   databaseConfig,
   mailConfig,
+  paymentConfig,
 } from './configs/index';
 import { PrismaModule } from '@infrastructure/prisma/prisma.module';
 import { GlobalExceptionFilter } from '@common/filters/global-exception.filter';
@@ -32,7 +33,7 @@ import { LedgerModule } from './modules/ledger/ledger.module';
     ConfigModule.forRoot({
       isGlobal: true,
       cache: true,
-      load: [appConfig, jwtConfig, databaseConfig, mailConfig],
+      load: [appConfig, jwtConfig, databaseConfig, mailConfig, paymentConfig],
     }),
 
     PrismaModule,

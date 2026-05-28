@@ -1,6 +1,8 @@
 // src/module/payment/payments.service.ts
 import { BadRequestException, Injectable } from '@nestjs/common';
-import { randomUUID } from 'crypto';
+import { ConfigService } from '@nestjs/config';
+import { IncomingHttpHeaders } from 'http';
+import { createHmac, randomUUID, timingSafeEqual } from 'crypto';
 import {
   LedgerAccountType,
   LedgerEntryCategory,
@@ -19,7 +21,6 @@ import { AuthUser } from '@modules/auth/dtos/auth.dto';
 import {
   ConfirmCodPaymentDto,
   CreatePaymentDto,
-  PaymentWebhookDto,
   QueryPaymentsDto,
   QueryRefundsDto,
   RejectRefundDto,
@@ -29,7 +30,10 @@ import {
 
 @Injectable()
 export class PaymentsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly configService: ConfigService,
+  ) {}
 
   async initiatePayment(userId: string, dto: CreatePaymentDto) {
     return this.createPayment(userId, dto);
@@ -235,20 +239,25 @@ export class PaymentsService {
     return payment;
   }
 
-  async handleProviderWebhook(
-    provider: PaymentProvider,
-    dto: PaymentWebhookDto,
-  ) {
-    if (!dto.paymentId && !dto.providerRef) {
+  async handleProviderWebhook(dto: {
+    provider: PaymentProvider;
+    payload: Record<string, unknown>;
+    headers: IncomingHttpHeaders;
+    rawBody?: Buffer;
+  }) {
+    await this.verifyWebhookSignature(dto);
+    const event = this.normalizeWebhookEvent(dto.provider, dto.payload);
+
+    if (!event.paymentId && !event.providerRef) {
       throw new BadRequestException('paymentId or providerRef is required');
     }
 
     const payment = await this.prisma.payment.findFirst({
       where: {
         deletedAt: null,
-        provider,
-        ...(dto.paymentId && { id: dto.paymentId }),
-        ...(dto.providerRef && { providerRef: dto.providerRef }),
+        provider: dto.provider,
+        ...(event.paymentId && { id: event.paymentId }),
+        ...(event.providerRef && { providerRef: event.providerRef }),
       },
     });
 
@@ -256,10 +265,306 @@ export class PaymentsService {
       throw new ResourceNotFoundException('Payment webhook target');
     }
 
-    return this.applyPaymentStatus(
-      payment.id,
-      dto.status ?? PaymentStatus.SUCCESS,
-      dto.providerRef,
+    return this.applyPaymentStatus(payment.id, event.status, event.providerRef);
+  }
+
+  private async verifyWebhookSignature(dto: {
+    provider: PaymentProvider;
+    payload: Record<string, unknown>;
+    headers: IncomingHttpHeaders;
+    rawBody?: Buffer;
+  }) {
+    if (dto.provider === PaymentProvider.STRIPE) {
+      this.verifyStripeWebhook(dto.headers, dto.rawBody);
+      return;
+    }
+
+    if (dto.provider === PaymentProvider.MOMO) {
+      this.verifyMomoWebhook(dto.payload);
+      return;
+    }
+
+    await this.verifyPaypalWebhook(dto.headers, dto.payload);
+  }
+
+  private verifyStripeWebhook(headers: IncomingHttpHeaders, rawBody?: Buffer) {
+    const webhookSecret = this.configService.get<string>(
+      'payment.stripe.webhookSecret',
+    );
+    if (!webhookSecret) {
+      throw new BadRequestException('Stripe webhook secret is not configured');
+    }
+    if (!rawBody) {
+      throw new BadRequestException('Stripe raw body is required');
+    }
+
+    const signatureHeader = this.getHeader(headers, 'stripe-signature');
+    if (!signatureHeader) {
+      throw new BadRequestException('Stripe signature header is missing');
+    }
+
+    const parts = signatureHeader
+      .split(',')
+      .reduce<Record<string, string[]>>((mapped, part) => {
+        const [key, value] = part.split('=');
+        if (!key || !value) return mapped;
+        mapped[key] = [...(mapped[key] ?? []), value];
+        return mapped;
+      }, {});
+    const timestamp = parts.t?.[0];
+    const signatures = parts.v1 ?? [];
+    if (!timestamp || signatures.length === 0) {
+      throw new BadRequestException('Stripe signature header is invalid');
+    }
+
+    const signedPayload = `${timestamp}.${rawBody.toString('utf8')}`;
+    const expected = createHmac('sha256', webhookSecret)
+      .update(signedPayload)
+      .digest('hex');
+    const matched = signatures.some((signature) =>
+      this.safeCompare(signature, expected),
+    );
+    if (!matched) {
+      throw new BadRequestException('Stripe signature verification failed');
+    }
+  }
+
+  private verifyMomoWebhook(payload: Record<string, unknown>) {
+    const accessKey = this.configService.get<string>('payment.momo.accessKey');
+    const secretKey = this.configService.get<string>('payment.momo.secretKey');
+    if (!accessKey || !secretKey) {
+      throw new BadRequestException('MoMo webhook keys are not configured');
+    }
+
+    const signature = this.getString(payload.signature);
+    if (!signature) {
+      throw new BadRequestException('MoMo signature is missing');
+    }
+
+    const rawSignature = [
+      ['accessKey', accessKey],
+      ['amount', payload.amount],
+      ['extraData', payload.extraData],
+      ['message', payload.message],
+      ['orderId', payload.orderId],
+      ['orderInfo', payload.orderInfo],
+      ['orderType', payload.orderType],
+      ['partnerCode', payload.partnerCode],
+      ['payType', payload.payType],
+      ['requestId', payload.requestId],
+      ['responseTime', payload.responseTime],
+      ['resultCode', payload.resultCode],
+      ['transId', payload.transId],
+    ]
+      .map(([key, value]) => `${key}=${this.getString(value) ?? ''}`)
+      .join('&');
+
+    const expected = createHmac('sha256', secretKey)
+      .update(rawSignature)
+      .digest('hex');
+    if (!this.safeCompare(signature, expected)) {
+      throw new BadRequestException('MoMo signature verification failed');
+    }
+  }
+
+  private async verifyPaypalWebhook(
+    headers: IncomingHttpHeaders,
+    payload: Record<string, unknown>,
+  ) {
+    const webhookId = this.configService.get<string>(
+      'payment.paypal.webhookId',
+    );
+    const clientId = this.configService.get<string>('payment.paypal.clientId');
+    const clientSecret = this.configService.get<string>(
+      'payment.paypal.clientSecret',
+    );
+    const apiBaseUrl = this.configService.get<string>(
+      'payment.paypal.apiBaseUrl',
+      'https://api-m.sandbox.paypal.com',
+    );
+    if (!webhookId || !clientId || !clientSecret) {
+      throw new BadRequestException(
+        'PayPal webhook credentials are not configured',
+      );
+    }
+
+    const transmissionId = this.getHeader(headers, 'paypal-transmission-id');
+    const transmissionTime = this.getHeader(
+      headers,
+      'paypal-transmission-time',
+    );
+    const transmissionSig = this.getHeader(headers, 'paypal-transmission-sig');
+    const certUrl = this.getHeader(headers, 'paypal-cert-url');
+    const authAlgo = this.getHeader(headers, 'paypal-auth-algo');
+    if (
+      !transmissionId ||
+      !transmissionTime ||
+      !transmissionSig ||
+      !certUrl ||
+      !authAlgo
+    ) {
+      throw new BadRequestException('PayPal signature headers are incomplete');
+    }
+
+    const accessToken = await this.getPaypalAccessToken(
+      apiBaseUrl,
+      clientId,
+      clientSecret,
+    );
+    const response = await fetch(
+      `${apiBaseUrl}/v1/notifications/verify-webhook-signature`,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          auth_algo: authAlgo,
+          cert_url: certUrl,
+          transmission_id: transmissionId,
+          transmission_sig: transmissionSig,
+          transmission_time: transmissionTime,
+          webhook_id: webhookId,
+          webhook_event: payload,
+        }),
+      },
+    );
+    if (!response.ok) {
+      throw new BadRequestException('PayPal signature verification failed');
+    }
+
+    const result = (await response.json()) as {
+      verification_status?: string;
+    };
+    if (result.verification_status !== 'SUCCESS') {
+      throw new BadRequestException('PayPal signature verification failed');
+    }
+  }
+
+  private async getPaypalAccessToken(
+    apiBaseUrl: string,
+    clientId: string,
+    clientSecret: string,
+  ) {
+    const credentials = Buffer.from(`${clientId}:${clientSecret}`).toString(
+      'base64',
+    );
+    const response = await fetch(`${apiBaseUrl}/v1/oauth2/token`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Basic ${credentials}`,
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: 'grant_type=client_credentials',
+    });
+    if (!response.ok) {
+      throw new BadRequestException('Cannot get PayPal access token');
+    }
+
+    const token = (await response.json()) as { access_token?: string };
+    if (!token.access_token) {
+      throw new BadRequestException('PayPal access token is missing');
+    }
+    return token.access_token;
+  }
+
+  private normalizeWebhookEvent(
+    provider: PaymentProvider,
+    payload: Record<string, unknown>,
+  ) {
+    if (provider === PaymentProvider.STRIPE) {
+      const data = this.getRecord(payload.data);
+      const object = this.getRecord(data?.object);
+      const metadata = this.getRecord(object?.metadata);
+      return {
+        paymentId: this.getString(metadata?.paymentId),
+        providerRef: this.getString(object?.id),
+        status: this.stripeStatusToPaymentStatus(
+          this.getString(object?.payment_status) ??
+            this.getString(object?.status) ??
+            this.getString(payload.type),
+        ),
+      };
+    }
+
+    if (provider === PaymentProvider.MOMO) {
+      return {
+        paymentId:
+          this.getString(payload.paymentId) ?? this.getString(payload.orderId),
+        providerRef: this.getString(payload.transId),
+        status:
+          this.getString(payload.resultCode) === '0'
+            ? PaymentStatus.SUCCESS
+            : PaymentStatus.FAILED,
+      };
+    }
+
+    const resource = this.getRecord(payload.resource);
+    return {
+      paymentId:
+        this.getString(resource?.custom_id) ??
+        this.getString(resource?.invoice_id) ??
+        this.getString(payload.paymentId),
+      providerRef:
+        this.getString(resource?.id) ?? this.getString(payload.providerRef),
+      status: this.paypalStatusToPaymentStatus(
+        this.getString(resource?.status) ?? this.getString(payload.event_type),
+      ),
+    };
+  }
+
+  private stripeStatusToPaymentStatus(status?: string) {
+    if (
+      status === 'paid' ||
+      status === 'succeeded' ||
+      status === 'checkout.session.completed'
+    ) {
+      return PaymentStatus.SUCCESS;
+    }
+    if (status === 'failed' || status === 'payment_intent.payment_failed') {
+      return PaymentStatus.FAILED;
+    }
+    return PaymentStatus.PENDING;
+  }
+
+  private paypalStatusToPaymentStatus(status?: string) {
+    if (status === 'COMPLETED' || status === 'PAYMENT.CAPTURE.COMPLETED') {
+      return PaymentStatus.SUCCESS;
+    }
+    if (
+      status === 'DECLINED' ||
+      status === 'FAILED' ||
+      status === 'PAYMENT.CAPTURE.DENIED'
+    ) {
+      return PaymentStatus.FAILED;
+    }
+    return PaymentStatus.PENDING;
+  }
+
+  private getHeader(headers: IncomingHttpHeaders, name: string) {
+    const value = headers[name] ?? headers[name.toLowerCase()];
+    if (Array.isArray(value)) return value[0];
+    return value;
+  }
+
+  private getRecord(value: unknown) {
+    return value && typeof value === 'object'
+      ? (value as Record<string, unknown>)
+      : undefined;
+  }
+
+  private getString(value: unknown) {
+    if (value === undefined || value === null) return undefined;
+    return String(value);
+  }
+
+  private safeCompare(actual: string, expected: string) {
+    const actualBuffer = Buffer.from(actual);
+    const expectedBuffer = Buffer.from(expected);
+    return (
+      actualBuffer.length === expectedBuffer.length &&
+      timingSafeEqual(actualBuffer, expectedBuffer)
     );
   }
 

@@ -9,9 +9,12 @@ import {
   Post,
   Put,
   Query,
+  Req,
   UseGuards,
 } from '@nestjs/common';
+import { RawBodyRequest } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { Request } from 'express';
 import { Public, GetUser, Roles } from '@common/decorators';
 import {
   UserRole,
@@ -23,7 +26,6 @@ import { PaymentsService } from './payments.service';
 import {
   ConfirmCodPaymentDto,
   CreatePaymentDto,
-  PaymentWebhookDto,
   QueryPaymentsDto,
   QueryRefundsDto,
   RejectRefundDto,
@@ -131,31 +133,46 @@ export class PaymentWebhooksController {
   @Public()
   @Post('momo')
   @ApiOperation({ summary: 'MoMo payment webhook' })
-  handleMomoWebhook(@Body() dto: PaymentWebhookDto) {
-    return this.paymentsService.handleProviderWebhook(
-      PaymentProvider.MOMO,
-      dto,
-    );
+  handleMomoWebhook(
+    @Req() request: RawBodyRequest<Request>,
+    @Body() payload: Record<string, unknown>,
+  ) {
+    return this.paymentsService.handleProviderWebhook({
+      provider: PaymentProvider.MOMO,
+      payload,
+      headers: request.headers,
+      rawBody: request.rawBody,
+    });
   }
 
   @Public()
   @Post('stripe')
   @ApiOperation({ summary: 'Stripe payment webhook' })
-  handleStripeWebhook(@Body() dto: PaymentWebhookDto) {
-    return this.paymentsService.handleProviderWebhook(
-      PaymentProvider.STRIPE,
-      dto,
-    );
+  handleStripeWebhook(
+    @Req() request: RawBodyRequest<Request>,
+    @Body() payload: Record<string, unknown>,
+  ) {
+    return this.paymentsService.handleProviderWebhook({
+      provider: PaymentProvider.STRIPE,
+      payload,
+      headers: request.headers,
+      rawBody: request.rawBody,
+    });
   }
 
   @Public()
   @Post('paypal')
   @ApiOperation({ summary: 'PayPal payment webhook' })
-  handlePaypalWebhook(@Body() dto: PaymentWebhookDto) {
-    return this.paymentsService.handleProviderWebhook(
-      PaymentProvider.PAYPAL,
-      dto,
-    );
+  handlePaypalWebhook(
+    @Req() request: RawBodyRequest<Request>,
+    @Body() payload: Record<string, unknown>,
+  ) {
+    return this.paymentsService.handleProviderWebhook({
+      provider: PaymentProvider.PAYPAL,
+      payload,
+      headers: request.headers,
+      rawBody: request.rawBody,
+    });
   }
 }
 

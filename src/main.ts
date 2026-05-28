@@ -13,6 +13,7 @@ import { API_PREFIX, API_VERSION } from './common/constants/index.js';
 async function bootstrap(): Promise<void> {
   const app = await NestFactory.create(AppModule, {
     bufferLogs: true,
+    rawBody: true,
   });
 
   const configService = app.get(ConfigService);
