@@ -3,7 +3,12 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { APP_FILTER, APP_INTERCEPTOR, APP_GUARD } from '@nestjs/core';
 
-import { appConfig, jwtConfig, databaseConfig } from './configs/index';
+import {
+  appConfig,
+  jwtConfig,
+  databaseConfig,
+  mailConfig,
+} from './configs/index';
 import { PrismaModule } from '@infrastructure/prisma/prisma.module';
 import { GlobalExceptionFilter } from '@common/filters/global-exception.filter';
 import { TransformInterceptor } from '@common/interceptors/transform.interceptor';
@@ -29,7 +34,7 @@ import { LedgerModule } from './modules/ledger/ledger.module';
     ConfigModule.forRoot({
       isGlobal: true,
       cache: true,
-      load: [appConfig, jwtConfig, databaseConfig],
+      load: [appConfig, jwtConfig, databaseConfig, mailConfig],
     }),
 
     PrismaModule,

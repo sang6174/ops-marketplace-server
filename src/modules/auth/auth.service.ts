@@ -14,6 +14,7 @@ import {
 import * as bcrypt from 'bcrypt';
 import { randomUUID } from 'crypto';
 import { PrismaService } from '@infrastructure/prisma/prisma.service';
+import { MailService } from '@infrastructure/mail/mail.service';
 import { hashPassword, comparePassword } from '@common/utils';
 import {
   InvalidCredentialsException,
@@ -45,6 +46,7 @@ export class AuthService {
     private readonly prisma: PrismaService,
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
+    private readonly mailService: MailService,
   ) {}
 
   // ===== Register =====
@@ -86,9 +88,11 @@ export class AuthService {
       return newUser;
     });
 
+    await this.mailService.sendVerifyEmail(user.email, verificationToken);
+
     return {
       user: { id: user.id, email: user.email, name: user.name },
-      verificationToken,
+      ...(this.isProduction() ? {} : { verificationToken }),
     };
   }
 
@@ -226,9 +230,11 @@ export class AuthService {
       },
     });
 
+    await this.mailService.sendPasswordResetEmail(user.email, resetToken);
+
     return {
-      message: 'Token đặt lại mật khẩu đã được tạo',
-      resetToken,
+      message: 'Nếu email tồn tại, token đặt lại mật khẩu đã được tạo',
+      ...(this.isProduction() ? {} : { resetToken }),
     };
   }
 
