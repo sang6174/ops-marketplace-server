@@ -1,6 +1,8 @@
 // src/common/utils/index.ts
 import * as bcrypt from 'bcrypt';
-import { SALT_ROUNDS } from '../constants';
+import { randomUUID } from 'crypto';
+import { Request } from 'express';
+import { PAGINATION, SALT_ROUNDS } from '../constants';
 
 // ===== Password =====
 
@@ -30,10 +32,24 @@ export function exclude<T extends object, K extends keyof T>(
 
 export function toPrismaPage(page: number, limit: number) {
   const validPage = Math.max(1, page);
-  const validLimit = Math.min(100, Math.max(1, limit));
+  const validLimit = Math.min(PAGINATION.MAX_LIMIT, Math.max(1, limit));
 
   return {
     skip: (validPage - 1) * validLimit,
     take: validLimit,
   };
+}
+
+// ===== request id =====
+
+export function getRequestId(request: Request): string {
+  const header = request.headers['x-request-id'];
+  const requestId = Array.isArray(header) ? header[0] : header;
+
+  if (requestId) return requestId;
+
+  const generatedRequestId = randomUUID();
+  request.headers['x-request-id'] = generatedRequestId;
+
+  return generatedRequestId;
 }

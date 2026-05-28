@@ -14,7 +14,10 @@ export class AppException extends BadRequestException {
     message: string,
     public readonly errorCode?: string,
   ) {
-    super(message);
+    super({
+      message,
+      ...(errorCode && { errorCode }),
+    });
   }
 }
 

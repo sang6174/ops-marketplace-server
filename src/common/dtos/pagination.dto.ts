@@ -41,11 +41,14 @@ export function paginate<T>(
   page: number,
   limit: number,
 ): PaginatedResult<T> {
+  const validPage = Math.max(1, page);
+  const validLimit = Math.min(PAGINATION.MAX_LIMIT, Math.max(1, limit));
+
   return {
     items,
     total,
-    page,
-    limit,
-    totalPages: Math.ceil(total / limit),
+    page: validPage,
+    limit: validLimit,
+    totalPages: Math.ceil(total / validLimit),
   };
 }

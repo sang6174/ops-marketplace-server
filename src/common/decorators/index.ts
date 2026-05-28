@@ -6,12 +6,14 @@ import {
 } from '@nestjs/common';
 import { Request } from 'express';
 import { UserRole } from '@infrastructure/generated/prisma/enums';
+import { Permission } from '@common/constants/permissions';
 
 // ===== Metadata keys =====
 
 export const IS_PUBLIC_KEY = 'isPublic' as const;
 export const ROLES_KEY = 'roles' as const;
 export const PERMISSIONS_KEY = 'permissions' as const;
+export const SKIP_TRANSFORM_KEY = 'skipTransform' as const;
 
 // ===== @Public() =====
 
@@ -32,3 +34,12 @@ export const GetUser = createParamDecorator(
 // ===== @Roles() =====
 
 export const Roles = (...roles: UserRole[]) => SetMetadata(ROLES_KEY, roles);
+
+// ===== @Permissions() =====
+
+export const Permissions = (...permissions: Permission[]) =>
+  SetMetadata(PERMISSIONS_KEY, permissions);
+
+// ===== @SkipTransform() =====
+
+export const SkipTransform = () => SetMetadata(SKIP_TRANSFORM_KEY, true);
