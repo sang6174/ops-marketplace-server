@@ -45,20 +45,24 @@ export class OrdersController {
     return this.ordersService.listOrders(user.id, dto);
   }
 
-  @Get(':id')
+  @Get('shops/me')
   @UseGuards(JwtAuthGuard)
+  @Roles(UserRole.SELLER)
+  @Permissions(Permission.ORDER_READ)
   @ApiBearerAuth('JWT')
-  @ApiOperation({ summary: 'Get order details' })
-  getOrder(@GetUser() user: AuthUser, @Param('id') orderId: string) {
-    return this.ordersService.getOrder(user.id, orderId);
+  @ApiOperation({ summary: '[Seller] List shop orders' })
+  listShopOrders(@GetUser() user: AuthUser, @Query() dto: QueryOrdersDto) {
+    return this.ordersService.listShopOrders(user.id, dto);
   }
 
-  @Delete(':id')
+  @Get('shops/me/:id')
   @UseGuards(JwtAuthGuard)
+  @Roles(UserRole.SELLER)
+  @Permissions(Permission.ORDER_READ)
   @ApiBearerAuth('JWT')
-  @ApiOperation({ summary: 'Cancel order (only PENDING status)' })
-  cancelOrder(@GetUser() user: AuthUser, @Param('id') orderId: string) {
-    return this.ordersService.cancelOrder(user.id, orderId);
+  @ApiOperation({ summary: '[Seller] Get shop order details' })
+  getShopOrder(@GetUser() user: AuthUser, @Param('id') orderId: string) {
+    return this.ordersService.getOrderAsShop(user.id, orderId);
   }
 
   @Patch(':id/status')
@@ -89,23 +93,19 @@ export class OrdersController {
     return this.ordersService.updatePaymentStatus(user.id, orderId, dto);
   }
 
-  @Get('shops/me')
+  @Get(':id')
   @UseGuards(JwtAuthGuard)
-  @Roles(UserRole.SELLER)
-  @Permissions(Permission.ORDER_READ)
   @ApiBearerAuth('JWT')
-  @ApiOperation({ summary: '[Seller] List shop orders' })
-  listShopOrders(@GetUser() user: AuthUser, @Query() dto: QueryOrdersDto) {
-    return this.ordersService.listShopOrders(user.id, dto);
+  @ApiOperation({ summary: 'Get order details' })
+  getOrder(@GetUser() user: AuthUser, @Param('id') orderId: string) {
+    return this.ordersService.getOrder(user.id, orderId);
   }
 
-  @Get('shops/me/:id')
+  @Delete(':id')
   @UseGuards(JwtAuthGuard)
-  @Roles(UserRole.SELLER)
-  @Permissions(Permission.ORDER_READ)
   @ApiBearerAuth('JWT')
-  @ApiOperation({ summary: '[Seller] Get shop order details' })
-  getShopOrder(@GetUser() user: AuthUser, @Param('id') orderId: string) {
-    return this.ordersService.getOrderAsShop(user.id, orderId);
+  @ApiOperation({ summary: 'Cancel order (only PENDING status)' })
+  cancelOrder(@GetUser() user: AuthUser, @Param('id') orderId: string) {
+    return this.ordersService.cancelOrder(user.id, orderId);
   }
 }
