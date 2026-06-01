@@ -14,13 +14,28 @@ import {
 import { PrismaService } from '@infrastructure/prisma/prisma.service';
 import { ResourceNotFoundException } from '@common/exceptions';
 import {
+  GhnRequiredNote,
   CreateShippingDto,
   PrintShippingLabelDto,
   ShippingFeeQueryDto,
-  ShippingProvider,
 } from './dtos/shipping.dto';
 
 type ProviderResponse = Record<string, unknown>;
+type SellerOrder = Prisma.OrderGetPayload<{
+  include: {
+    user: { select: { name: true; email: true } };
+    address: true;
+    items: true;
+    shipping: true;
+  };
+}>;
+const GHN_PROVIDER = 'GHN';
+const DEFAULT_GHN_PACKAGE = {
+  weight: 200,
+  length: 10,
+  width: 10,
+  height: 10,
+};
 
 @Injectable()
 export class ShippingService {
@@ -43,14 +58,8 @@ export class ShippingService {
     const order = await this.getSellerOrder(userId, dto.orderId);
     if (order.shipping) return order.shipping;
 
-    const providerResponse =
-      dto.provider === ShippingProvider.GHN
-        ? await this.createGhnOrder(order.id, dto.providerPayload)
-        : await this.createGhtkOrder(order.id, dto.providerPayload);
-    const trackingCode = this.extractTrackingCode(
-      dto.provider,
-      providerResponse,
-    );
+    const providerResponse = await this.createGhnOrder(order, dto);
+    const trackingCode = this.extractTrackingCode(providerResponse);
     const fee = this.extractShippingFee(providerResponse);
     const labelUrl = this.extractLabelUrl(providerResponse);
 
@@ -63,7 +72,7 @@ export class ShippingService {
     return this.prisma.shipping.create({
       data: {
         orderId: order.id,
-        provider: dto.provider,
+        provider: GHN_PROVIDER,
         trackingCode,
         status: ShippingStatus.PENDING,
         fee,
@@ -79,12 +88,9 @@ export class ShippingService {
       userId,
       dto.trackingCode,
     );
-    const provider = this.getProvider(dto.provider, shipping.provider);
+    this.assertGhnShipping(shipping.provider);
 
-    const providerResponse =
-      provider === ShippingProvider.GHN
-        ? await this.printGhnLabel(dto.trackingCode)
-        : await this.printGhtkLabel(dto.trackingCode);
+    const providerResponse = await this.printGhnLabel(dto.trackingCode);
     const labelUrl = this.extractLabelUrl(providerResponse);
     const updatedShipping = await this.prisma.shipping.update({
       where: { id: shipping.id },
@@ -103,7 +109,7 @@ export class ShippingService {
 
     return {
       shipping: updatedShipping,
-      provider,
+      provider: GHN_PROVIDER,
       providerResponse,
     };
   }
@@ -113,11 +119,8 @@ export class ShippingService {
       userId,
       trackingCode,
     );
-    const provider = this.parseProvider(shipping.provider);
-    const providerResponse =
-      provider === ShippingProvider.GHN
-        ? await this.trackGhnOrder(trackingCode)
-        : await this.trackGhtkOrder(trackingCode);
+    this.assertGhnShipping(shipping.provider);
+    const providerResponse = await this.trackGhnOrder(trackingCode);
 
     return {
       shipping,
@@ -128,11 +131,8 @@ export class ShippingService {
   async calculateFee(userId: string, dto: ShippingFeeQueryDto) {
     if (dto.orderId) await this.getSellerOrder(userId, dto.orderId);
 
-    const payload = this.parseJsonPayload(dto.payload);
-    const providerResponse =
-      dto.provider === ShippingProvider.GHN
-        ? await this.calculateGhnFee(payload)
-        : await this.calculateGhtkFee(payload);
+    const payload = this.buildGhnFeePayload(dto);
+    const providerResponse = await this.calculateGhnFee(payload);
     const fee = this.extractShippingFee(providerResponse);
     let shipping = null;
 
@@ -154,7 +154,7 @@ export class ShippingService {
     }
 
     return {
-      provider: dto.provider,
+      provider: GHN_PROVIDER,
       fee,
       shipping,
       providerResponse,
@@ -162,7 +162,6 @@ export class ShippingService {
   }
 
   async handleWebhook(dto: {
-    provider: ShippingProvider;
     payload: Record<string, unknown>;
     query: Record<string, unknown>;
     headers: IncomingHttpHeaders;
@@ -170,7 +169,7 @@ export class ShippingService {
   }) {
     this.verifyWebhook(dto);
 
-    const trackingCode = this.extractTrackingCode(dto.provider, dto.payload);
+    const trackingCode = this.extractTrackingCode(dto.payload);
     if (!trackingCode) {
       return { received: true, matched: false };
     }
@@ -182,7 +181,7 @@ export class ShippingService {
       return { received: true, matched: false };
     }
 
-    const status = this.mapShippingStatus(dto.provider, dto.payload);
+    const status = this.mapShippingStatus(dto.payload);
     const updated = await this.prisma.$transaction(async (tx) => {
       const updatedShipping = await tx.shipping.update({
         where: { id: shipping.id },
@@ -210,39 +209,14 @@ export class ShippingService {
     };
   }
 
-  private async createGhnOrder(
-    orderId: string,
-    providerPayload?: Record<string, unknown>,
-  ) {
+  private async createGhnOrder(order: SellerOrder, dto: CreateShippingDto) {
     const { baseUrl, token, shopId } = this.getGhnConfig();
+    const payload = this.buildGhnCreateOrderPayload(order, dto);
+
     return this.fetchProvider(`${baseUrl}/shipping-order/create`, {
       method: 'POST',
       headers: this.ghnHeaders(token, shopId),
-      body: JSON.stringify({
-        client_order_code: orderId,
-        ...(providerPayload ?? {}),
-      }),
-    });
-  }
-
-  private async createGhtkOrder(
-    orderId: string,
-    providerPayload?: Record<string, unknown>,
-  ) {
-    const { baseUrl, token } = this.getGhtkConfig();
-    const payload = providerPayload ?? {};
-    const orderPayload = this.getRecord(payload.order) ?? {};
-
-    return this.fetchProvider(`${baseUrl}/services/shipment/order/?ver=1.5`, {
-      method: 'POST',
-      headers: this.ghtkHeaders(token),
-      body: JSON.stringify({
-        ...payload,
-        order: {
-          id: orderId,
-          ...orderPayload,
-        },
-      }),
+      body: JSON.stringify(payload),
     });
   }
 
@@ -255,14 +229,6 @@ export class ShippingService {
     });
   }
 
-  private async printGhtkLabel(trackingCode: string) {
-    const { baseUrl, token } = this.getGhtkConfig();
-    return this.fetchProvider(`${baseUrl}/services/label/${trackingCode}`, {
-      method: 'GET',
-      headers: { Token: token },
-    });
-  }
-
   private async trackGhnOrder(trackingCode: string) {
     const { baseUrl, token, shopId } = this.getGhnConfig();
     return this.fetchProvider(`${baseUrl}/shipping-order/detail`, {
@@ -270,17 +236,6 @@ export class ShippingService {
       headers: this.ghnHeaders(token, shopId),
       body: JSON.stringify({ order_code: trackingCode }),
     });
-  }
-
-  private async trackGhtkOrder(trackingCode: string) {
-    const { baseUrl, token } = this.getGhtkConfig();
-    return this.fetchProvider(
-      `${baseUrl}/services/shipment/v2/${trackingCode}`,
-      {
-        method: 'GET',
-        headers: { Token: token },
-      },
-    );
   }
 
   private async calculateGhnFee(payload: Record<string, unknown>) {
@@ -292,27 +247,6 @@ export class ShippingService {
     });
   }
 
-  private async calculateGhtkFee(payload: Record<string, unknown>) {
-    const { baseUrl, token } = this.getGhtkConfig();
-    const query = new URLSearchParams(
-      Object.entries(payload).reduce<Record<string, string>>(
-        (params, [key, value]) => ({
-          ...params,
-          [key]: String(value),
-        }),
-        {},
-      ),
-    );
-
-    return this.fetchProvider(
-      `${baseUrl}/services/shipment/fee?${query.toString()}`,
-      {
-        method: 'GET',
-        headers: { Token: token },
-      },
-    );
-  }
-
   private async getSellerOrder(userId: string, orderId: string) {
     const shop = await this.getSellerShop(userId);
     const order = await this.prisma.order.findFirst({
@@ -322,6 +256,7 @@ export class ShippingService {
         deletedAt: null,
       },
       include: {
+        user: { select: { name: true, email: true } },
         address: true,
         items: true,
         shipping: true,
@@ -330,6 +265,111 @@ export class ShippingService {
 
     if (!order) throw new ResourceNotFoundException('Order', orderId);
     return order;
+  }
+
+  private buildGhnCreateOrderPayload(
+    order: SellerOrder,
+    dto: CreateShippingDto,
+  ) {
+    const packageSize = this.getPackageSize(dto);
+    const payload = this.stripUndefined({
+      payment_type_id: dto.paymentTypeId ?? 2,
+      note: dto.note,
+      required_note: dto.requiredNote ?? GhnRequiredNote.KHONGCHOXEMHANG,
+      client_order_code: order.id,
+      to_name: dto.toName ?? order.user?.name,
+      to_phone: dto.toPhone,
+      to_address: dto.toAddress ?? order.address?.addressLine,
+      to_ward_code: dto.toWardCode,
+      to_district_id: dto.toDistrictId,
+      cod_amount: dto.codAmount ?? 0,
+      content: this.buildOrderContent(order),
+      ...packageSize,
+      insurance_value:
+        dto.insuranceValue ??
+        Math.min(Math.round(Number(order.totalPrice)), 5000000),
+      ...(dto.serviceId
+        ? { service_id: dto.serviceId }
+        : { service_type_id: dto.serviceTypeId ?? 2 }),
+      items: order.items.map((item) => ({
+        name: item.productName,
+        code: item.sku,
+        quantity: item.quantity,
+        price: Math.round(Number(item.price)),
+        ...packageSize,
+      })),
+      ...(dto.providerPayload ?? {}),
+    });
+
+    this.assertGhnCreateOrderPayload(payload);
+    return payload;
+  }
+
+  private buildGhnFeePayload(dto: ShippingFeeQueryDto) {
+    const payload = {
+      ...this.stripUndefined({
+        service_id: dto.serviceId,
+        ...(dto.serviceId ? {} : { service_type_id: dto.serviceTypeId ?? 2 }),
+        to_district_id: dto.toDistrictId,
+        to_ward_code: dto.toWardCode,
+        weight: dto.weight ?? DEFAULT_GHN_PACKAGE.weight,
+        length: dto.length ?? DEFAULT_GHN_PACKAGE.length,
+        width: dto.width ?? DEFAULT_GHN_PACKAGE.width,
+        height: dto.height ?? DEFAULT_GHN_PACKAGE.height,
+        insurance_value: dto.insuranceValue ?? 0,
+      }),
+      ...this.parseJsonPayload(dto.payload),
+    };
+
+    this.assertGhnFeePayload(payload);
+    return payload;
+  }
+
+  private getPackageSize(
+    dto: Pick<CreateShippingDto, 'weight' | 'length' | 'width' | 'height'>,
+  ) {
+    return {
+      weight: dto.weight ?? DEFAULT_GHN_PACKAGE.weight,
+      length: dto.length ?? DEFAULT_GHN_PACKAGE.length,
+      width: dto.width ?? DEFAULT_GHN_PACKAGE.width,
+      height: dto.height ?? DEFAULT_GHN_PACKAGE.height,
+    };
+  }
+
+  private buildOrderContent(order: SellerOrder) {
+    const content = order.items
+      .map((item) => item.productName)
+      .filter(Boolean)
+      .join(', ');
+    return content.slice(0, 2000) || `Order ${order.id}`;
+  }
+
+  private assertGhnCreateOrderPayload(payload: Record<string, unknown>) {
+    this.assertNonEmptyString(payload.to_name, 'toName');
+    this.assertNonEmptyString(payload.to_phone, 'toPhone');
+    this.assertNonEmptyString(payload.to_address, 'toAddress');
+    this.assertNonEmptyString(payload.to_ward_code, 'toWardCode');
+    this.assertPositiveNumber(payload.to_district_id, 'toDistrictId');
+    this.assertPositiveNumber(payload.weight, 'weight');
+    this.assertPositiveNumber(payload.length, 'length');
+    this.assertPositiveNumber(payload.width, 'width');
+    this.assertPositiveNumber(payload.height, 'height');
+    this.assertPositiveNumber(payload.payment_type_id, 'paymentTypeId');
+    this.assertNonEmptyString(payload.required_note, 'requiredNote');
+
+    if (!payload.service_id && !payload.service_type_id) {
+      throw new BadRequestException('serviceId or serviceTypeId is required');
+    }
+  }
+
+  private assertGhnFeePayload(payload: Record<string, unknown>) {
+    this.assertPositiveNumber(payload.to_district_id, 'toDistrictId');
+    this.assertNonEmptyString(payload.to_ward_code, 'toWardCode');
+    this.assertPositiveNumber(payload.weight, 'weight');
+
+    if (!payload.service_id && !payload.service_type_id) {
+      throw new BadRequestException('serviceId or serviceTypeId is required');
+    }
   }
 
   private async getSellerShop(userId: string) {
@@ -381,29 +421,11 @@ export class ShippingService {
     return { baseUrl, token, shopId };
   }
 
-  private getGhtkConfig() {
-    const baseUrl = this.configService.get<string>('shipping.ghtk.baseUrl');
-    const token = this.configService.get<string>('shipping.ghtk.token');
-    if (!baseUrl || !token) {
-      throw new BadRequestException(
-        'GHTK_TOKEN and GHTK_BASE_URL are required',
-      );
-    }
-    return { baseUrl, token };
-  }
-
   private ghnHeaders(token: string, shopId: string) {
     return {
       'Content-Type': 'application/json',
       Token: token,
       ShopId: shopId,
-    };
-  }
-
-  private ghtkHeaders(token: string) {
-    return {
-      'Content-Type': 'application/json',
-      Token: token,
     };
   }
 
@@ -426,18 +448,12 @@ export class ShippingService {
   }
 
   private verifyWebhook(dto: {
-    provider: ShippingProvider;
     payload: Record<string, unknown>;
     query: Record<string, unknown>;
     headers: IncomingHttpHeaders;
     rawBody?: Buffer;
   }) {
-    if (dto.provider === ShippingProvider.GHN) {
-      this.verifyGhnWebhook(dto.headers, dto.rawBody);
-      return;
-    }
-
-    this.verifyGhtkWebhook(dto.payload, dto.query);
+    this.verifyGhnWebhook(dto.headers, dto.rawBody);
   }
 
   private verifyGhnWebhook(headers: IncomingHttpHeaders, rawBody?: Buffer) {
@@ -470,49 +486,15 @@ export class ShippingService {
     }
   }
 
-  private verifyGhtkWebhook(
-    payload: Record<string, unknown>,
-    query: Record<string, unknown>,
-  ) {
-    const expectedHash = this.configService.get<string>(
-      'shipping.ghtk.webhookHash',
-    );
-    if (!expectedHash) return;
-
-    const hash =
-      this.getString(query.hash) ??
-      this.getString(payload.hash) ??
-      this.getString(payload.verify_hash);
-    if (!hash || !this.safeCompare(hash, expectedHash)) {
-      throw new UnauthorizedException('GHTK webhook hash is invalid');
-    }
-  }
-
-  private extractTrackingCode(
-    provider: ShippingProvider,
-    payload: Record<string, unknown>,
-  ) {
+  private extractTrackingCode(payload: Record<string, unknown>) {
     const data = this.getRecord(payload.data);
-    const order = this.getRecord(payload.order);
-
-    if (provider === ShippingProvider.GHN) {
-      return (
-        this.getString(payload.order_code) ??
-        this.getString(payload.OrderCode) ??
-        this.getString(payload.trackingCode) ??
-        this.getString(data?.order_code) ??
-        this.getString(data?.OrderCode)
-      );
-    }
 
     return (
-      this.getString(payload.label_id) ??
-      this.getString(payload.label) ??
+      this.getString(payload.order_code) ??
+      this.getString(payload.OrderCode) ??
       this.getString(payload.trackingCode) ??
-      this.getString(payload.partner_id) ??
-      this.getString(order?.label) ??
-      this.getString(order?.label_id) ??
-      this.getString(data?.label)
+      this.getString(data?.order_code) ??
+      this.getString(data?.OrderCode)
     );
   }
 
@@ -545,10 +527,7 @@ export class ShippingService {
     );
   }
 
-  private mapShippingStatus(
-    provider: ShippingProvider,
-    payload: Record<string, unknown>,
-  ) {
+  private mapShippingStatus(payload: Record<string, unknown>) {
     const status = (
       this.getString(payload.status) ??
       this.getString(payload.Status) ??
@@ -562,8 +541,7 @@ export class ShippingService {
     if (
       status.includes('delivered') ||
       status.includes('success') ||
-      status.includes('delivered_complete') ||
-      (provider === ShippingProvider.GHTK && ['5', '6'].includes(status))
+      status.includes('delivered_complete')
     ) {
       return ShippingStatus.DELIVERED;
     }
@@ -573,8 +551,7 @@ export class ShippingService {
       status.includes('picking') ||
       status.includes('shipping') ||
       status.includes('transport') ||
-      status.includes('delivery') ||
-      (provider === ShippingProvider.GHTK && ['2', '3', '4'].includes(status))
+      status.includes('delivery')
     ) {
       return ShippingStatus.SHIPPING;
     }
@@ -601,21 +578,10 @@ export class ShippingService {
     return {};
   }
 
-  private getProvider(
-    requestedProvider: ShippingProvider,
-    existingProvider?: string | null,
-  ) {
-    const provider = this.parseProvider(existingProvider);
-    if (provider !== requestedProvider) {
-      throw new BadRequestException('Shipping provider does not match');
+  private assertGhnShipping(provider?: string | null) {
+    if (provider !== GHN_PROVIDER) {
+      throw new BadRequestException('Unsupported shipping provider');
     }
-    return provider;
-  }
-
-  private parseProvider(provider?: string | null) {
-    if (provider === ShippingProvider.GHN) return ShippingProvider.GHN;
-    if (provider === ShippingProvider.GHTK) return ShippingProvider.GHTK;
-    throw new BadRequestException('Unsupported shipping provider');
   }
 
   private parseJsonPayload(payload?: string) {
@@ -655,6 +621,27 @@ export class ShippingService {
       if (Number.isFinite(parsed)) return parsed;
     }
     return undefined;
+  }
+
+  private assertNonEmptyString(value: unknown, field: string) {
+    if (typeof value !== 'string' || value.trim() === '') {
+      throw new BadRequestException(`${field} is required for GHN shipping`);
+    }
+  }
+
+  private assertPositiveNumber(value: unknown, field: string) {
+    const parsed = typeof value === 'number' ? value : Number(value);
+    if (!Number.isFinite(parsed) || parsed <= 0) {
+      throw new BadRequestException(`${field} is required for GHN shipping`);
+    }
+  }
+
+  private stripUndefined(value: Record<string, unknown>) {
+    return Object.fromEntries(
+      Object.entries(value).filter(
+        ([, entryValue]) => entryValue !== undefined,
+      ),
+    );
   }
 
   private toJsonObject(value: Record<string, unknown>) {

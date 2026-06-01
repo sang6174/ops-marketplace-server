@@ -19,7 +19,6 @@ import {
   CreateShippingDto,
   PrintShippingLabelDto,
   ShippingFeeQueryDto,
-  ShippingProvider,
 } from './dtos/shipping.dto';
 import { ShippingService } from './shipping.service';
 
@@ -83,24 +82,6 @@ export class ShippingWebhooksController {
     @Query() query: Record<string, unknown>,
   ) {
     return this.shippingService.handleWebhook({
-      provider: ShippingProvider.GHN,
-      payload,
-      query,
-      headers: request.headers,
-      rawBody: request.rawBody,
-    });
-  }
-
-  @Public()
-  @Post('ghtk')
-  @ApiOperation({ summary: 'GHTK shipping webhook' })
-  handleGhtkWebhook(
-    @Req() request: RawBodyRequest<Request>,
-    @Body() payload: Record<string, unknown>,
-    @Query() query: Record<string, unknown>,
-  ) {
-    return this.shippingService.handleWebhook({
-      provider: ShippingProvider.GHTK,
       payload,
       query,
       headers: request.headers,
