@@ -1,5 +1,6 @@
 // src/module/admin/admin.service.ts
 import { BadRequestException, Injectable } from '@nestjs/common';
+import { Prisma } from '@infrastructure/generated/prisma/client';
 import { PrismaService } from '@infrastructure/prisma/prisma.service';
 import { ResourceNotFoundException } from '@common/exceptions';
 import { paginate } from '@common/dtos/pagination.dto';
@@ -599,13 +600,16 @@ export class AdminService {
     }
 
     return this.prisma.$transaction(async (tx) => {
-      const updated = await tx.payout.update({
-        where: { id: payoutId },
+      const claimed = await tx.payout.updateMany({
+        where: { id: payoutId, status: 'PENDING' },
         data: {
           status,
           paidAt: status === 'PAID' ? new Date() : undefined,
         },
       });
+      const updated = await tx.payout.findUnique({ where: { id: payoutId } });
+      if (!updated) throw new ResourceNotFoundException('Payout', payoutId);
+      if (claimed.count === 0) return updated;
 
       const accountType =
         status === 'PAID'
@@ -625,21 +629,21 @@ export class AdminService {
       });
 
       if (account) {
-        await tx.ledgerAccount.update({
-          where: { id: account.id },
-          data: { balance: { increment: balanceDelta } },
+        const entryCreated = await this.createLedgerEntryIfMissing(tx, {
+          accountId: account.id,
+          amount: payout.amount,
+          type: entryType,
+          reference: payout.id,
+          transactionId: payout.id,
+          category: LedgerEntryCategory.PAYOUT,
         });
 
-        await tx.ledgerEntry.create({
-          data: {
-            accountId: account.id,
-            amount: payout.amount,
-            type: entryType,
-            reference: payout.id,
-            transactionId: payout.id,
-            category: LedgerEntryCategory.PAYOUT,
-          },
-        });
+        if (entryCreated) {
+          await tx.ledgerAccount.update({
+            where: { id: account.id },
+            data: { balance: { increment: balanceDelta } },
+          });
+        }
       }
 
       await tx.auditLog.create({
@@ -656,5 +660,25 @@ export class AdminService {
 
       return updated;
     });
+  }
+
+  private async createLedgerEntryIfMissing(
+    tx: Parameters<Parameters<PrismaService['$transaction']>[0]>[0],
+    data: Prisma.LedgerEntryUncheckedCreateInput,
+  ) {
+    try {
+      await tx.ledgerEntry.create({ data });
+      return true;
+    } catch (error) {
+      if (this.isUniqueViolation(error)) return false;
+      throw error;
+    }
+  }
+
+  private isUniqueViolation(error: unknown) {
+    return (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === 'P2002'
+    );
   }
 }

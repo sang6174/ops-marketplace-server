@@ -14,6 +14,7 @@ export const IS_PUBLIC_KEY = 'isPublic' as const;
 export const ROLES_KEY = 'roles' as const;
 export const PERMISSIONS_KEY = 'permissions' as const;
 export const SKIP_TRANSFORM_KEY = 'skipTransform' as const;
+export const SKIP_IDEMPOTENCY_KEY = 'skipIdempotency' as const;
 
 // ===== @Public() =====
 
@@ -43,3 +44,7 @@ export const Permissions = (...permissions: Permission[]) =>
 // ===== @SkipTransform() =====
 
 export const SkipTransform = () => SetMetadata(SKIP_TRANSFORM_KEY, true);
+
+// ===== @SkipIdempotency() =====
+
+export const SkipIdempotency = () => SetMetadata(SKIP_IDEMPOTENCY_KEY, true);

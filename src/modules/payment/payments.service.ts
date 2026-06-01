@@ -2,7 +2,7 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { IncomingHttpHeaders } from 'http';
-import { createHmac, randomUUID, timingSafeEqual } from 'crypto';
+import { createHmac, timingSafeEqual } from 'crypto';
 import {
   LedgerAccountType,
   LedgerEntryCategory,
@@ -13,6 +13,7 @@ import {
   RefundStatus,
   UserRole,
 } from '@infrastructure/generated/prisma/enums';
+import { Prisma } from '@infrastructure/generated/prisma/client';
 import { PrismaService } from '@infrastructure/prisma/prisma.service';
 import { ResourceNotFoundException } from '@common/exceptions';
 import { paginate } from '@common/dtos/pagination.dto';
@@ -97,24 +98,31 @@ export class PaymentsService {
       0,
     );
 
-    return this.prisma.payment.create({
-      data: {
-        userId,
-        amount: totalAmount.toString(),
-        currency: 'VND',
-        status: PaymentStatus.PENDING,
-        method: dto.method,
-        provider: dto.provider,
-        idempotencyKey: randomUUID(),
-        items: {
-          create: dto.orderIds.map((orderId) => ({
-            orderId,
-            amount: orders.find((order) => order.id === orderId)!.totalPrice,
-          })),
+    try {
+      return await this.prisma.payment.create({
+        data: {
+          userId,
+          amount: totalAmount.toString(),
+          currency: 'VND',
+          status: PaymentStatus.PENDING,
+          method: dto.method,
+          provider: dto.provider,
+          items: {
+            create: dto.orderIds.map((orderId) => ({
+              orderId,
+              amount: orders.find((order) => order.id === orderId)!.totalPrice,
+            })),
+          },
         },
-      },
-      include: { items: true },
-    });
+        include: { items: true },
+      });
+    } catch (error) {
+      if (!this.isUniqueViolation(error)) throw error;
+
+      const payment = await this.findPaymentForExactOrders(dto.orderIds);
+      if (payment) return payment;
+      throw error;
+    }
   }
 
   async getPayment(userId: string, paymentId: string) {
@@ -768,14 +776,22 @@ export class PaymentsService {
     if (payment.status !== PaymentStatus.PENDING) return payment;
 
     return this.prisma.$transaction(async (tx) => {
-      const updatedPayment = await tx.payment.update({
-        where: { id: paymentId },
+      const claimed = await tx.payment.updateMany({
+        where: { id: paymentId, status: PaymentStatus.PENDING },
         data: {
           status,
           providerRef: providerRef ?? payment.providerRef,
         },
-        include: { items: true },
       });
+
+      if (claimed.count === 0) {
+        const current = await tx.payment.findFirst({
+          where: { id: paymentId, deletedAt: null },
+          include: { items: true },
+        });
+        if (!current) throw new ResourceNotFoundException('Payment', paymentId);
+        return current;
+      }
 
       await tx.order.updateMany({
         where: { id: { in: payment.items.map((item) => item.orderId) } },
@@ -793,6 +809,13 @@ export class PaymentsService {
         }
       }
 
+      const updatedPayment = await tx.payment.findUnique({
+        where: { id: paymentId },
+        include: { items: true },
+      });
+      if (!updatedPayment) {
+        throw new ResourceNotFoundException('Payment', paymentId);
+      }
       return updatedPayment;
     });
   }
@@ -820,23 +843,26 @@ export class PaymentsService {
         create: {
           ownerId: shop.ownerId,
           type,
-          balance: amount as string,
+          balance: 0,
         },
-        update: {
-          balance: { increment: Number(amount) },
-        },
+        update: {},
       });
 
-      await tx.ledgerEntry.create({
-        data: {
-          accountId: account.id,
-          amount: amount as string,
-          type: LedgerEntryType.CREDIT,
-          reference: paymentId,
-          transactionId: paymentId,
-          category: LedgerEntryCategory.PAYMENT,
-        },
+      const entryCreated = await this.createLedgerEntryIfMissing(tx, {
+        accountId: account.id,
+        amount: amount as string,
+        type: LedgerEntryType.CREDIT,
+        reference: paymentId,
+        transactionId: paymentId,
+        category: LedgerEntryCategory.PAYMENT,
       });
+
+      if (entryCreated) {
+        await tx.ledgerAccount.update({
+          where: { id: account.id },
+          data: { balance: { increment: Number(amount) } },
+        });
+      }
     }
   }
 
@@ -878,23 +904,26 @@ export class PaymentsService {
         create: {
           ownerId: shop.ownerId,
           type,
-          balance: -Number(amount),
+          balance: 0,
         },
-        update: {
-          balance: { decrement: Number(amount) },
-        },
+        update: {},
       });
 
-      await tx.ledgerEntry.create({
-        data: {
-          accountId: account.id,
-          amount: amount as string,
-          type: LedgerEntryType.DEBIT,
-          reference: refundId,
-          transactionId: refundId,
-          category: LedgerEntryCategory.REFUND,
-        },
+      const entryCreated = await this.createLedgerEntryIfMissing(tx, {
+        accountId: account.id,
+        amount: amount as string,
+        type: LedgerEntryType.DEBIT,
+        reference: refundId,
+        transactionId: refundId,
+        category: LedgerEntryCategory.REFUND,
       });
+
+      if (entryCreated) {
+        await tx.ledgerAccount.update({
+          where: { id: account.id },
+          data: { balance: { decrement: Number(amount) } },
+        });
+      }
     }
 
     const buyerAccount = await tx.ledgerAccount.upsert({
@@ -907,23 +936,71 @@ export class PaymentsService {
       create: {
         ownerId: buyerId,
         type: LedgerAccountType.BUYER_WALLET,
-        balance: amount as string,
+        balance: 0,
       },
-      update: {
-        balance: { increment: Number(amount) },
-      },
+      update: {},
     });
 
-    await tx.ledgerEntry.create({
-      data: {
-        accountId: buyerAccount.id,
-        amount: amount as string,
-        type: LedgerEntryType.CREDIT,
-        reference: refundId,
-        transactionId: refundId,
-        category: LedgerEntryCategory.REFUND,
-      },
+    const entryCreated = await this.createLedgerEntryIfMissing(tx, {
+      accountId: buyerAccount.id,
+      amount: amount as string,
+      type: LedgerEntryType.CREDIT,
+      reference: refundId,
+      transactionId: refundId,
+      category: LedgerEntryCategory.REFUND,
     });
+
+    if (entryCreated) {
+      await tx.ledgerAccount.update({
+        where: { id: buyerAccount.id },
+        data: { balance: { increment: Number(amount) } },
+      });
+    }
+  }
+
+  private async findPaymentForExactOrders(orderIds: string[]) {
+    const requestedOrderIds = [...new Set(orderIds)].sort();
+    const payments = await this.prisma.payment.findMany({
+      where: {
+        deletedAt: null,
+        items: { some: { orderId: { in: requestedOrderIds } } },
+      },
+      include: { items: true },
+    });
+
+    return (
+      payments.find((payment) => {
+        const paymentOrderIds = payment.items
+          .map((item) => item.orderId)
+          .sort();
+        return (
+          paymentOrderIds.length === requestedOrderIds.length &&
+          paymentOrderIds.every(
+            (orderId, index) => orderId === requestedOrderIds[index],
+          )
+        );
+      }) ?? null
+    );
+  }
+
+  private async createLedgerEntryIfMissing(
+    tx: Parameters<Parameters<PrismaService['$transaction']>[0]>[0],
+    data: Prisma.LedgerEntryCreateInput,
+  ) {
+    try {
+      await tx.ledgerEntry.create({ data });
+      return true;
+    } catch (error) {
+      if (this.isUniqueViolation(error)) return false;
+      throw error;
+    }
+  }
+
+  private isUniqueViolation(error: unknown) {
+    return (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === 'P2002'
+    );
   }
 
   private async getSellerShop(userId: string) {

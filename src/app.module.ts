@@ -15,6 +15,7 @@ import { PrismaModule } from '@infrastructure/prisma/prisma.module';
 import { GlobalExceptionFilter } from '@common/filters/global-exception.filter';
 import { TransformInterceptor } from '@common/interceptors/transform.interceptor';
 import { LoggingInterceptor } from '@common/interceptors/logging.interceptor';
+import { IdempotencyInterceptor } from '@common/interceptors/idempotency.interceptor';
 
 import { RolesAndPermissionsGuard } from '@modules/auth/guards';
 import { AuthModule } from '@modules/auth/auth.module';
@@ -72,6 +73,10 @@ import { ShippingModule } from './modules/shipping/shipping.module';
     {
       provide: APP_INTERCEPTOR,
       useClass: TransformInterceptor,
+    },
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: IdempotencyInterceptor,
     },
     {
       provide: APP_GUARD,

@@ -1,4 +1,5 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
+import { Prisma } from '@infrastructure/generated/prisma/client';
 import { PrismaService } from '@infrastructure/prisma/prisma.service';
 import { toPrismaPage } from '@common/utils';
 import { ResourceNotFoundException } from '@common/exceptions';
@@ -89,26 +90,34 @@ export class LedgerService {
         : Number(dto.amount);
 
     return this.prisma.$transaction(async (tx) => {
-      // Update account balance
-      const updated = await tx.ledgerAccount.update({
-        where: { id: dto.accountId },
-        data: {
-          balance: {
-            increment: amount,
-          },
-        },
+      const entry = await this.createLedgerEntryIfMissing(tx, {
+        accountId: dto.accountId,
+        amount: dto.amount,
+        type: dto.type,
+        reference: dto.reference,
+        transactionId: dto.transactionId,
+        category: dto.category,
       });
 
-      // Create entry
-      const entry = await tx.ledgerEntry.create({
-        data: {
-          accountId: dto.accountId,
-          amount: dto.amount,
-          type: dto.type,
-          reference: dto.reference,
-          transactionId: dto.transactionId,
-          category: dto.category,
-        },
+      if (!entry) {
+        const current = await tx.ledgerAccount.findUnique({
+          where: { id: dto.accountId },
+        });
+        return {
+          entry: await tx.ledgerEntry.findFirst({
+            where: {
+              accountId: dto.accountId,
+              transactionId: dto.transactionId,
+              category: dto.category,
+            },
+          }),
+          account: current,
+        };
+      }
+
+      const updated = await tx.ledgerAccount.update({
+        where: { id: dto.accountId },
+        data: { balance: { increment: amount } },
       });
 
       return {
@@ -196,43 +205,66 @@ export class LedgerService {
     }
 
     return this.prisma.$transaction(async (tx) => {
-      // Create reverse entry
       const reverseType =
         entry.type === LedgerEntryType.DEBIT
           ? LedgerEntryType.CREDIT
           : LedgerEntryType.DEBIT;
 
-      const reverseEntry = await tx.ledgerEntry.create({
-        data: {
-          accountId: entry.accountId,
-          amount: entry.amount,
-          type: reverseType,
-          reference: `REVERSE:${entry.reference}`,
-          transactionId: `REV-${entry.transactionId}`,
-          category: entry.category,
-        },
+      const reverseEntry = await this.createLedgerEntryIfMissing(tx, {
+        accountId: entry.accountId,
+        amount: entry.amount,
+        type: reverseType,
+        reference: `REVERSE:${entry.reference}`,
+        transactionId: `REV-${entry.transactionId}`,
+        category: entry.category,
       });
 
-      // Update account balance
       const amount =
         entry.type === LedgerEntryType.DEBIT
           ? Number(entry.amount)
           : -Number(entry.amount);
 
-      const updated = await tx.ledgerAccount.update({
-        where: { id: entry.accountId },
-        data: {
-          balance: {
-            increment: amount,
-          },
-        },
-      });
+      const updated = reverseEntry
+        ? await tx.ledgerAccount.update({
+            where: { id: entry.accountId },
+            data: { balance: { increment: amount } },
+          })
+        : await tx.ledgerAccount.findUnique({
+            where: { id: entry.accountId },
+          });
 
       return {
         originalEntry: entry,
-        reverseEntry,
+        reverseEntry:
+          reverseEntry ??
+          (await tx.ledgerEntry.findFirst({
+            where: {
+              accountId: entry.accountId,
+              transactionId: `REV-${entry.transactionId}`,
+              category: entry.category,
+            },
+          })),
         account: updated,
       };
     });
+  }
+
+  private async createLedgerEntryIfMissing(
+    tx: Parameters<Parameters<PrismaService['$transaction']>[0]>[0],
+    data: Prisma.LedgerEntryUncheckedCreateInput,
+  ) {
+    try {
+      return await tx.ledgerEntry.create({ data });
+    } catch (error) {
+      if (this.isUniqueViolation(error)) return null;
+      throw error;
+    }
+  }
+
+  private isUniqueViolation(error: unknown) {
+    return (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === 'P2002'
+    );
   }
 }

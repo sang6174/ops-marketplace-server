@@ -121,6 +121,11 @@ enum PayoutStatus {
   FAILED
 }
 
+enum IdempotencyStatus {
+  IN_PROGRESS
+  COMPLETED
+}
+
 // 
 // BankAccount
 //
@@ -804,12 +809,37 @@ model LedgerEntry {
 
   createdAt DateTime @default(now())
 
+  @@unique([accountId, transactionId, category])
   @@index([accountId])
   @@index([transactionId])
   @@index([reference])
   @@index([createdAt])
   @@index([accountId, createdAt])
   @@map("ledger_entry")
+}
+
+model IdempotencyRequest {
+  id             String            @id @default(uuid())
+  key            String
+  scope          String
+  requestHash    String
+  method         String
+  path           String
+  userId         String?
+  status         IdempotencyStatus @default(IN_PROGRESS)
+  responseStatus Int?
+  responseBody   Json?
+  lockedUntil    DateTime
+  expiresAt      DateTime
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  @@unique([scope, key])
+  @@index([userId])
+  @@index([status])
+  @@index([expiresAt])
+  @@index([lockedUntil])
+  @@map("idempotency_requests")
 }
 
 //

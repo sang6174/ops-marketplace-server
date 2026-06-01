@@ -15,7 +15,7 @@ import {
 import { RawBodyRequest } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Request } from 'express';
-import { Public, GetUser, Roles } from '@common/decorators';
+import { Public, GetUser, Roles, SkipIdempotency } from '@common/decorators';
 import {
   UserRole,
   PaymentProvider,
@@ -127,6 +127,7 @@ export class PaymentsController {
 
 @ApiTags('Payment Webhooks')
 @Controller('webhooks')
+@SkipIdempotency()
 export class PaymentWebhooksController {
   constructor(private readonly paymentsService: PaymentsService) {}
 

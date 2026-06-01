@@ -29,7 +29,8 @@ async function bootstrap(): Promise<void> {
         ? [configService.get<string>('app.appUrl', '')]
         : '*',
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'Idempotency-Key'],
+    exposedHeaders: ['Idempotency-Replayed', 'x-request-id'],
     credentials: true,
   });
   app.use(cookieParser());

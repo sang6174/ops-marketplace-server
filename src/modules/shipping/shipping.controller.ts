@@ -11,7 +11,7 @@ import {
 import { RawBodyRequest } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Request } from 'express';
-import { GetUser, Public, Roles } from '@common/decorators';
+import { GetUser, Public, Roles, SkipIdempotency } from '@common/decorators';
 import { UserRole } from '@infrastructure/generated/prisma/enums';
 import { AuthUser } from '@modules/auth/dtos/auth.dto';
 import { JwtAuthGuard } from '@modules/auth/guards';
@@ -70,6 +70,7 @@ export class SellerShippingController {
 
 @ApiTags('Shipping Webhooks')
 @Controller('webhooks/shipping')
+@SkipIdempotency()
 export class ShippingWebhooksController {
   constructor(private readonly shippingService: ShippingService) {}
 

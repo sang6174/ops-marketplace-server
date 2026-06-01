@@ -6,6 +6,7 @@ import {
   LedgerEntryType,
   PayoutStatus,
 } from '@infrastructure/generated/prisma/enums';
+import { Prisma } from '@infrastructure/generated/prisma/client';
 import { PrismaService } from '@infrastructure/prisma/prisma.service';
 import { ResourceNotFoundException } from '@common/exceptions';
 import { paginate } from '@common/dtos/pagination.dto';
@@ -208,10 +209,13 @@ export class PayoutsService {
     };
 
     return this.prisma.$transaction(async (tx) => {
-      const updated = await tx.payout.update({
-        where: { id: payoutId },
+      const claimed = await tx.payout.updateMany({
+        where: { id: payoutId, status: PayoutStatus.PENDING },
         data: updateData,
       });
+      const updated = await tx.payout.findUnique({ where: { id: payoutId } });
+      if (!updated) throw new ResourceNotFoundException('Payout', payoutId);
+      if (claimed.count === 0) return updated;
 
       if (dto.status === PayoutStatus.FAILED) {
         const availableAccount = await this.getLedgerAccount(
@@ -220,21 +224,21 @@ export class PayoutsService {
         );
 
         if (availableAccount) {
-          await tx.ledgerAccount.update({
-            where: { id: availableAccount.id },
-            data: { balance: { increment: payout.amount } },
+          const entryCreated = await this.createLedgerEntryIfMissing(tx, {
+            accountId: availableAccount.id,
+            amount: payout.amount,
+            type: LedgerEntryType.CREDIT,
+            reference: payoutId,
+            transactionId: payoutId,
+            category: LedgerEntryCategory.PAYOUT,
           });
 
-          await tx.ledgerEntry.create({
-            data: {
-              accountId: availableAccount.id,
-              amount: payout.amount,
-              type: LedgerEntryType.CREDIT,
-              reference: payoutId,
-              transactionId: payoutId,
-              category: LedgerEntryCategory.PAYOUT,
-            },
-          });
+          if (entryCreated) {
+            await tx.ledgerAccount.update({
+              where: { id: availableAccount.id },
+              data: { balance: { increment: payout.amount } },
+            });
+          }
         }
       }
 
@@ -365,5 +369,25 @@ export class PayoutsService {
     }
 
     return bankAccount;
+  }
+
+  private async createLedgerEntryIfMissing(
+    tx: Parameters<Parameters<PrismaService['$transaction']>[0]>[0],
+    data: Prisma.LedgerEntryUncheckedCreateInput,
+  ) {
+    try {
+      await tx.ledgerEntry.create({ data });
+      return true;
+    } catch (error) {
+      if (this.isUniqueViolation(error)) return false;
+      throw error;
+    }
+  }
+
+  private isUniqueViolation(error: unknown) {
+    return (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === 'P2002'
+    );
   }
 }
