@@ -38,7 +38,7 @@ export class CreatePaymentDto {
 
   @ApiPropertyOptional({
     enum: PaymentProvider,
-    description: 'Payment provider (required for ONLINE method)',
+    description: 'Payment provider for ONLINE method. Defaults to STRIPE.',
   })
   @IsOptional()
   @IsEnum(PaymentProvider)

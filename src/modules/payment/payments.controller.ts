@@ -132,21 +132,6 @@ export class PaymentWebhooksController {
   constructor(private readonly paymentsService: PaymentsService) {}
 
   @Public()
-  @Post('momo')
-  @ApiOperation({ summary: 'MoMo payment webhook' })
-  handleMomoWebhook(
-    @Req() request: RawBodyRequest<Request>,
-    @Body() payload: Record<string, unknown>,
-  ) {
-    return this.paymentsService.handleProviderWebhook({
-      provider: PaymentProvider.MOMO,
-      payload,
-      headers: request.headers,
-      rawBody: request.rawBody,
-    });
-  }
-
-  @Public()
   @Post('stripe')
   @ApiOperation({ summary: 'Stripe payment webhook' })
   handleStripeWebhook(
@@ -155,21 +140,6 @@ export class PaymentWebhooksController {
   ) {
     return this.paymentsService.handleProviderWebhook({
       provider: PaymentProvider.STRIPE,
-      payload,
-      headers: request.headers,
-      rawBody: request.rawBody,
-    });
-  }
-
-  @Public()
-  @Post('paypal')
-  @ApiOperation({ summary: 'PayPal payment webhook' })
-  handlePaypalWebhook(
-    @Req() request: RawBodyRequest<Request>,
-    @Body() payload: Record<string, unknown>,
-  ) {
-    return this.paymentsService.handleProviderWebhook({
-      provider: PaymentProvider.PAYPAL,
       payload,
       headers: request.headers,
       rawBody: request.rawBody,
