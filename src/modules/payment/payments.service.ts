@@ -2,7 +2,7 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { IncomingHttpHeaders } from 'http';
-import { createHmac, timingSafeEqual } from 'crypto';
+import Stripe = require('stripe');
 import {
   LedgerAccountType,
   LedgerEntryCategory,
@@ -29,12 +29,31 @@ import {
   UpdatePaymentStatusDto,
 } from './dtos/payment.dto';
 
+type StripeWebhookEvent = {
+  type: string;
+  data: {
+    object: {
+      id?: string;
+      metadata?: Record<string, string>;
+      payment_status?: string;
+      status?: string;
+    };
+  };
+};
+
 @Injectable()
 export class PaymentsService {
+  private readonly stripe: Stripe.Stripe | null;
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly configService: ConfigService,
-  ) {}
+  ) {
+    const secretKey = this.configService.get<string>(
+      'payment.stripe.secretKey',
+    );
+    this.stripe = secretKey ? new Stripe(secretKey) : null;
+  }
 
   async initiatePayment(userId: string, dto: CreatePaymentDto) {
     return this.createPayment(userId, dto);
@@ -92,7 +111,11 @@ export class PaymentsService {
         )
       );
     });
-    if (existingPayment) return existingPayment;
+    if (existingPayment) {
+      return dto.method === PaymentMethod.ONLINE
+        ? this.ensureStripeCheckoutSession(existingPayment.id)
+        : existingPayment;
+    }
     if (existingPayments.length) {
       throw new BadRequestException(
         'One or more orders already have a pending payment',
@@ -105,7 +128,7 @@ export class PaymentsService {
     );
 
     try {
-      return await this.prisma.payment.create({
+      const payment = await this.prisma.payment.create({
         data: {
           userId,
           amount: totalAmount.toString(),
@@ -125,11 +148,19 @@ export class PaymentsService {
         },
         include: { items: true },
       });
+
+      return dto.method === PaymentMethod.ONLINE
+        ? this.ensureStripeCheckoutSession(payment.id)
+        : payment;
     } catch (error) {
       if (!this.isUniqueViolation(error)) throw error;
 
       const payment = await this.findPaymentForExactOrders(dto.orderIds);
-      if (payment) return payment;
+      if (payment) {
+        return dto.method === PaymentMethod.ONLINE
+          ? this.ensureStripeCheckoutSession(payment.id)
+          : payment;
+      }
       throw error;
     }
   }
@@ -232,6 +263,121 @@ export class PaymentsService {
     );
   }
 
+  private async ensureStripeCheckoutSession(paymentId: string) {
+    const payment = await this.prisma.payment.findFirst({
+      where: { id: paymentId, deletedAt: null },
+      include: {
+        user: { select: { email: true } },
+        items: { include: { order: true } },
+      },
+    });
+
+    if (!payment) throw new ResourceNotFoundException('Payment', paymentId);
+    if (payment.method !== PaymentMethod.ONLINE) return payment;
+    if (payment.status !== PaymentStatus.PENDING) {
+      return {
+        payment,
+        checkoutUrl: null,
+        publishableKey: this.getStripePublishableKey(),
+      };
+    }
+
+    if (payment.providerRef?.startsWith('cs_')) {
+      try {
+        const existingSession =
+          await this.getStripe().checkout.sessions.retrieve(
+            payment.providerRef,
+          );
+        if (existingSession.url && existingSession.status !== 'expired') {
+          return {
+            payment,
+            checkoutUrl: existingSession.url,
+            publishableKey: this.getStripePublishableKey(),
+          };
+        }
+      } catch {
+        // Create a fresh Checkout Session below if Stripe no longer has this one.
+      }
+    }
+
+    const amount = Math.round(Number(payment.amount));
+    if (!Number.isFinite(amount) || amount <= 0) {
+      throw new BadRequestException('Invalid Stripe payment amount');
+    }
+
+    const session = await this.getStripe().checkout.sessions.create({
+      mode: 'payment',
+      client_reference_id: payment.id,
+      customer_email: payment.user.email,
+      success_url: this.buildStripeReturnUrl('success', payment.id),
+      cancel_url: this.buildStripeReturnUrl('cancel', payment.id),
+      metadata: {
+        paymentId: payment.id,
+        orderIds: payment.items.map((item) => item.orderId).join(','),
+      },
+      payment_intent_data: {
+        metadata: {
+          paymentId: payment.id,
+          orderIds: payment.items.map((item) => item.orderId).join(','),
+        },
+      },
+      line_items: [
+        {
+          quantity: 1,
+          price_data: {
+            currency: payment.currency.toLowerCase(),
+            unit_amount: amount,
+            product_data: {
+              name: `OPS Marketplace payment ${payment.id}`,
+            },
+          },
+        },
+      ],
+    });
+
+    const updatedPayment = await this.prisma.payment.update({
+      where: { id: payment.id },
+      data: { providerRef: session.id },
+      include: { items: true },
+    });
+
+    return {
+      payment: updatedPayment,
+      checkoutUrl: session.url,
+      publishableKey: this.getStripePublishableKey(),
+    };
+  }
+
+  private getStripe() {
+    if (!this.stripe) {
+      throw new BadRequestException('Stripe secret key is not configured');
+    }
+
+    return this.stripe;
+  }
+
+  private getStripePublishableKey() {
+    return this.configService.get<string>('payment.stripe.publishableKey');
+  }
+
+  private buildStripeReturnUrl(type: 'success' | 'cancel', paymentId: string) {
+    const configuredUrl = this.configService.get<string>(
+      type === 'success'
+        ? 'payment.stripe.successUrl'
+        : 'payment.stripe.cancelUrl',
+    );
+    const fallbackAppUrl = this.configService.get<string>(
+      'app.appUrl',
+      'http://localhost:3000',
+    );
+    const baseUrl = configuredUrl ?? `${fallbackAppUrl}/payment/${type}`;
+    const separator = baseUrl.includes('?') ? '&' : '?';
+
+    return `${baseUrl}${separator}paymentId=${encodeURIComponent(
+      paymentId,
+    )}&session_id={CHECKOUT_SESSION_ID}`;
+  }
+
   async cancelPayment(userId: string, paymentId: string) {
     const payment = await this.getPayment(userId, paymentId);
 
@@ -258,40 +404,36 @@ export class PaymentsService {
     headers: IncomingHttpHeaders;
     rawBody?: Buffer;
   }) {
-    await this.verifyWebhookSignature(dto);
-    const event = this.normalizeStripeWebhookEvent(dto.payload);
+    const stripeEvent = this.verifyStripeWebhook(dto.headers, dto.rawBody);
+    const event = this.normalizeStripeWebhookEvent(
+      stripeEvent as StripeWebhookEvent,
+    );
 
     if (!event.paymentId && !event.providerRef) {
       throw new BadRequestException('paymentId or providerRef is required');
     }
 
-    const payment = await this.prisma.payment.findFirst({
-      where: {
-        deletedAt: null,
-        provider: dto.provider,
-        ...(event.paymentId && { id: event.paymentId }),
-        ...(event.providerRef && { providerRef: event.providerRef }),
-      },
-    });
+    const payment = event.paymentId
+      ? await this.prisma.payment.findFirst({
+          where: {
+            id: event.paymentId,
+            deletedAt: null,
+            provider: PaymentProvider.STRIPE,
+          },
+        })
+      : await this.prisma.payment.findFirst({
+          where: {
+            deletedAt: null,
+            provider: PaymentProvider.STRIPE,
+            providerRef: event.providerRef,
+          },
+        });
 
     if (!payment) {
       throw new ResourceNotFoundException('Payment webhook target');
     }
 
     return this.applyPaymentStatus(payment.id, event.status, event.providerRef);
-  }
-
-  private verifyWebhookSignature(dto: {
-    provider: PaymentProvider;
-    payload: Record<string, unknown>;
-    headers: IncomingHttpHeaders;
-    rawBody?: Buffer;
-  }) {
-    if (dto.provider !== PaymentProvider.STRIPE) {
-      throw new BadRequestException('Unsupported payment provider');
-    }
-
-    this.verifyStripeWebhook(dto.headers, dto.rawBody);
   }
 
   private verifyStripeWebhook(headers: IncomingHttpHeaders, rawBody?: Buffer) {
@@ -310,58 +452,62 @@ export class PaymentsService {
       throw new BadRequestException('Stripe signature header is missing');
     }
 
-    const parts = signatureHeader
-      .split(',')
-      .reduce<Record<string, string[]>>((mapped, part) => {
-        const [key, value] = part.split('=');
-        if (!key || !value) return mapped;
-        mapped[key] = [...(mapped[key] ?? []), value];
-        return mapped;
-      }, {});
-    const timestamp = parts.t?.[0];
-    const signatures = parts.v1 ?? [];
-    if (!timestamp || signatures.length === 0) {
-      throw new BadRequestException('Stripe signature header is invalid');
-    }
-
-    const signedPayload = `${timestamp}.${rawBody.toString('utf8')}`;
-    const expected = createHmac('sha256', webhookSecret)
-      .update(signedPayload)
-      .digest('hex');
-    const matched = signatures.some((signature) =>
-      this.safeCompare(signature, expected),
-    );
-    if (!matched) {
+    try {
+      return this.getStripe().webhooks.constructEvent(
+        rawBody,
+        signatureHeader,
+        webhookSecret,
+      );
+    } catch {
       throw new BadRequestException('Stripe signature verification failed');
     }
   }
 
-  private normalizeStripeWebhookEvent(payload: Record<string, unknown>) {
-    const data = this.getRecord(payload.data);
-    const object = this.getRecord(data?.object);
-    const metadata = this.getRecord(object?.metadata);
+  private normalizeStripeWebhookEvent(event: StripeWebhookEvent) {
+    const object = event.data.object;
+    const metadata = object.metadata ?? {};
+
     return {
-      paymentId: this.getString(metadata?.paymentId),
-      providerRef: this.getString(object?.id),
+      paymentId: metadata.paymentId,
+      providerRef: object.id,
       status: this.stripeStatusToPaymentStatus(
-        this.getString(object?.payment_status) ??
-          this.getString(object?.status) ??
-          this.getString(payload.type),
+        event.type,
+        object.payment_status,
+        object.status,
       ),
     };
   }
 
-  private stripeStatusToPaymentStatus(status?: string) {
+  private stripeStatusToPaymentStatus(...statuses: Array<string | undefined>) {
     if (
-      status === 'paid' ||
-      status === 'succeeded' ||
-      status === 'checkout.session.completed'
+      statuses.some((status) =>
+        [
+          'paid',
+          'succeeded',
+          'complete',
+          'checkout.session.completed',
+          'payment_intent.succeeded',
+        ].includes(status ?? ''),
+      )
     ) {
       return PaymentStatus.SUCCESS;
     }
-    if (status === 'failed' || status === 'payment_intent.payment_failed') {
+
+    if (
+      statuses.some((status) =>
+        [
+          'failed',
+          'canceled',
+          'cancelled',
+          'expired',
+          'payment_intent.payment_failed',
+          'checkout.session.expired',
+        ].includes(status ?? ''),
+      )
+    ) {
       return PaymentStatus.FAILED;
     }
+
     return PaymentStatus.PENDING;
   }
 
@@ -369,26 +515,6 @@ export class PaymentsService {
     const value = headers[name] ?? headers[name.toLowerCase()];
     if (Array.isArray(value)) return value[0];
     return value;
-  }
-
-  private getRecord(value: unknown) {
-    return value && typeof value === 'object'
-      ? (value as Record<string, unknown>)
-      : undefined;
-  }
-
-  private getString(value: unknown) {
-    if (value === undefined || value === null) return undefined;
-    return String(value);
-  }
-
-  private safeCompare(actual: string, expected: string) {
-    const actualBuffer = Buffer.from(actual);
-    const expectedBuffer = Buffer.from(expected);
-    return (
-      actualBuffer.length === expectedBuffer.length &&
-      timingSafeEqual(actualBuffer, expectedBuffer)
-    );
   }
 
   async confirmCodPayment(user: AuthUser, dto: ConfirmCodPaymentDto) {
