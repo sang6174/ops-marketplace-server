@@ -8,8 +8,9 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { AuthUser } from '@modules/auth/dtos/auth.dto';
 import { JwtAuthGuard } from '@modules/auth/guards';
-import { Public } from '@common/decorators';
+import { GetUser, Public } from '@common/decorators';
 import { LedgerService } from './ledger.service';
 import {
   CreateLedgerAccountDto,
@@ -21,6 +22,14 @@ import {
 @Controller('ledger')
 export class LedgerController {
   constructor(private readonly ledgerService: LedgerService) {}
+
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('JWT')
+  @Post('accounts')
+  @ApiOperation({ summary: 'Create ledger account for current user' })
+  createAccount(@GetUser() user: AuthUser, @Body() dto: CreateLedgerAccountDto) {
+    return this.ledgerService.createAccount(user.id, dto);
+  }
 
   @Public()
   @Get('accounts/:accountId')
