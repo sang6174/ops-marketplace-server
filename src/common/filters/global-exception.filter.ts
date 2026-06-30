@@ -13,6 +13,7 @@ import { getRequestId } from '@common/utils';
 @Catch()
 export class GlobalExceptionFilter implements ExceptionFilter {
   private readonly logger = new Logger(GlobalExceptionFilter.name);
+  private readonly isDev = process.env.NODE_ENV === 'development';
 
   catch(exception: unknown, host: ArgumentsHost): void {
     const ctx = host.switchToHttp();
@@ -22,10 +23,12 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     response.setHeader('x-request-id', requestId);
 
     let status = HttpStatus.INTERNAL_SERVER_ERROR;
-    let message: string | string[] = 'Đã có lỗi xảy ra, vui lòng thử lại';
+    let message: string | string[] =
+      'An internal server error occurred. Please try again later.';
     let errorCode: string | undefined;
+    let details: unknown = undefined;
+    let stack: string | undefined = undefined;
 
-    // ===== HttpException =====
     if (exception instanceof HttpException) {
       status = exception.getStatus();
       const res = exception.getResponse();
@@ -34,66 +37,101 @@ export class GlobalExceptionFilter implements ExceptionFilter {
         message = res;
       } else if (typeof res === 'object' && res !== null) {
         const resObj = res as Record<string, unknown>;
-
         message = (resObj['message'] as string | string[]) ?? exception.message;
         errorCode = resObj['errorCode'] as string | undefined;
+        if (this.isDev && resObj['details'] !== undefined) {
+          details = resObj['details'];
+        }
+      }
+
+      if (this.isDev && exception instanceof Error) {
+        stack = exception.stack;
       }
     }
 
-    // ===== Prisma errors =====
+    // ===== Prisma Known Errors =====
     else if (exception instanceof Prisma.PrismaClientKnownRequestError) {
       switch (exception.code) {
         case 'P2000':
           status = HttpStatus.BAD_REQUEST;
-          message = 'Giá trị gửi lên vượt quá độ dài cho phép';
+          message = 'Value exceeds maximum allowed length';
           errorCode = 'VALUE_TOO_LONG';
           break;
-        case 'P2002': // Unique constraint
+        case 'P2002':
           status = HttpStatus.CONFLICT;
-          message = 'Dữ liệu đã tồn tại';
+          message = 'Duplicate data already exists';
           errorCode = 'UNIQUE_CONSTRAINT';
           break;
-        case 'P2003': // Foreign key constraint
+        case 'P2003':
           status = HttpStatus.BAD_REQUEST;
-          message = 'Dữ liệu tham chiếu không hợp lệ';
+          message = 'Invalid reference data';
           errorCode = 'FOREIGN_KEY_CONSTRAINT';
           break;
         case 'P2016':
           status = HttpStatus.BAD_REQUEST;
-          message = 'Truy vấn dữ liệu không hợp lệ';
+          message = 'Invalid query interpretation';
           errorCode = 'QUERY_INTERPRETATION_ERROR';
           break;
         case 'P2017':
           status = HttpStatus.BAD_REQUEST;
-          message = 'Quan hệ dữ liệu không hợp lệ';
+          message = 'Invalid data relation';
           errorCode = 'RELATION_NOT_CONNECTED';
           break;
-        case 'P2025': // Record not found
+        case 'P2025':
           status = HttpStatus.NOT_FOUND;
-          message = 'Không tìm thấy dữ liệu';
+          message = 'Record not found';
           errorCode = 'NOT_FOUND';
           break;
         default:
           this.logger.error(
-            `Prisma error ${exception.code}:`,
-            exception.message,
+            `Prisma error ${exception.code}: ${exception.message}`,
+            exception.stack,
           );
+          if (this.isDev) {
+            details = { prismaCode: exception.code, meta: exception.meta };
+            stack = exception.stack;
+          }
       }
+    }
+
+    // ===== Prisma Validation Error (syntax error) =====
+    else if (exception instanceof Prisma.PrismaClientValidationError) {
+      status = HttpStatus.BAD_REQUEST;
+      message = 'Invalid query data';
+      errorCode = 'PRISMA_VALIDATION_ERROR';
+      if (this.isDev) {
+        details = { validationError: exception.message };
+        stack = exception.stack;
+      }
+      this.logger.warn(`Prisma validation error: ${exception.message}`);
     }
 
     // ===== Unknown errors =====
     else {
       this.logger.error('Unexpected error:', exception);
+      // Trong dev, trả về chi tiết lỗi để debug
+      if (this.isDev && exception instanceof Error) {
+        message = exception.message;
+        stack = exception.stack;
+      }
     }
 
-    response.status(status).json({
+    // ===== Build response body =====
+    const responseBody: Record<string, unknown> = {
       success: false,
       statusCode: status,
       message,
-      ...(errorCode && { errorCode }),
       requestId,
       timestamp: new Date().toISOString(),
       path: request.url,
-    });
+    };
+
+    if (errorCode) responseBody.errorCode = errorCode;
+    if (this.isDev) {
+      if (details !== undefined) responseBody.details = details;
+      if (stack) responseBody.stack = stack;
+    }
+
+    response.status(status).json(responseBody);
   }
 }
