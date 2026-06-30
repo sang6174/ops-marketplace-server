@@ -14,9 +14,11 @@ import { getRequestId } from '@common/utils';
 export interface ApiResponse<T> {
   success: boolean;
   statusCode: number;
+  message?: string;
   data: T;
   requestId: string;
   timestamp: string;
+  path: string;
 }
 
 @Injectable()
@@ -46,13 +48,28 @@ export class TransformInterceptor<T> implements NestInterceptor<
     response.setHeader('x-request-id', requestId);
 
     return next.handle().pipe(
-      map((data) => ({
-        success: true,
-        statusCode: response.statusCode,
-        data,
-        requestId,
-        timestamp: new Date().toISOString(),
-      })),
+      map((data) => {
+        let message: string | undefined;
+        let responseData = data;
+
+        if (data && typeof data === 'object' && 'message' in data) {
+          message = (data as any).message;
+          if (message) {
+            const { message: _, ...rest } = data as any;
+            responseData = rest;
+          }
+        }
+
+        return {
+          success: true,
+          statusCode: response.statusCode,
+          ...(message && { message }),
+          data: responseData,
+          requestId,
+          timestamp: new Date().toISOString(),
+          path: request.url,
+        };
+      }),
     );
   }
 }
