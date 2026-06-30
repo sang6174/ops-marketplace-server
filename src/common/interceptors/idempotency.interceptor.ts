@@ -1,220 +1,232 @@
 import {
-  BadRequestException,
-  CallHandler,
-  ConflictException,
-  ExecutionContext,
-  Injectable,
-  NestInterceptor,
+	BadRequestException,
+	CallHandler,
+	ConflictException,
+	ExecutionContext,
+	Injectable,
+	NestInterceptor,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { Request, Response } from 'express';
 import { createHash } from 'crypto';
 import { Observable, from, of, throwError } from 'rxjs';
-import { catchError, mergeMap } from 'rxjs/operators';
-import { IdempotencyStatus } from '@infrastructure/generated/prisma/enums';
+import { catchError, mergeMap, timeout } from 'rxjs/operators';
 import { Prisma } from '@infrastructure/generated/prisma/client';
 import { PrismaService } from '@infrastructure/prisma/prisma.service';
 import { SKIP_IDEMPOTENCY_KEY } from '@common/decorators';
+import { Logger } from '@nestjs/common';
 
 const MUTATING_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 const IDEMPOTENCY_HEADER = 'idempotency-key';
-const LOCK_TTL_MS = 2 * 60 * 1000;
-const RETENTION_MS = 24 * 60 * 60 * 1000;
+const LOCK_TTL_MS = 2 * 60 * 1000; // 2 phút
+const RETENTION_MS = 24 * 60 * 60 * 1000; // 1 ngày
 
 @Injectable()
 export class IdempotencyInterceptor implements NestInterceptor {
-  constructor(
-    private readonly prisma: PrismaService,
-    private readonly reflector: Reflector,
-  ) {}
+	private readonly logger = new Logger(IdempotencyInterceptor.name);
 
-  intercept(context: ExecutionContext, next: CallHandler): Observable<unknown> {
-    if (context.getType() !== 'http') return next.handle();
+	constructor(
+		private readonly prisma: PrismaService,
+		private readonly reflector: Reflector,
+	) {}
 
-    const shouldSkip = this.reflector.getAllAndOverride<boolean>(
-      SKIP_IDEMPOTENCY_KEY,
-      [context.getHandler(), context.getClass()],
-    );
-    if (shouldSkip) return next.handle();
+	intercept(context: ExecutionContext, next: CallHandler): Observable<unknown> {
+		if (context.getType() !== 'http') return next.handle();
 
-    const http = context.switchToHttp();
-    const request = http.getRequest<Request>();
-    const response = http.getResponse<Response>();
-    const method = request.method.toUpperCase();
-    if (!MUTATING_METHODS.has(method)) return next.handle();
+		const shouldSkip = this.reflector.getAllAndOverride<boolean>(
+			SKIP_IDEMPOTENCY_KEY,
+			[context.getHandler(), context.getClass()],
+		);
+		if (shouldSkip) return next.handle();
 
-    const key = this.getIdempotencyKey(request);
-    if (!key) {
-      throw new BadRequestException('Idempotency-Key header is required');
-    }
+		const http = context.switchToHttp();
+		const request = http.getRequest<Request>();
+		const response = http.getResponse<Response>();
+		const method = request.method.toUpperCase();
+		if (!MUTATING_METHODS.has(method)) return next.handle();
 
-    const now = new Date();
-    const userId = this.getUserId(request);
-    const scope = this.getScope(request, userId);
-    const requestHash = this.hashRequest(request);
+		const key = this.getIdempotencyKey(request);
+		if (!key) {
+			throw new BadRequestException('Idempotency-Key header is required');
+		}
 
-    return from(
-      this.reserveRequest(key, scope, requestHash, request, now),
-    ).pipe(
-      mergeMap((reserved) => {
-        if (reserved.status === IdempotencyStatus.COMPLETED) {
-          if (reserved.responseStatus) response.status(reserved.responseStatus);
-          response.setHeader('Idempotency-Replayed', 'true');
-          return of(reserved.responseBody);
-        }
+		const now = new Date();
+		const userId = this.getUserId(request);
+		const scope = this.getScope(request, userId);
+		const requestHash = this.hashRequest(request);
 
-        response.setHeader('Idempotency-Replayed', 'false');
-        return next.handle().pipe(
-          mergeMap((body) =>
-            from(
-              this.completeRequest(
-                reserved.id,
-                response.statusCode,
-                this.toJsonValue(body),
-              ),
-            ).pipe(mergeMap(() => of(body))),
-          ),
-          catchError((error) =>
-            from(this.releaseRequest(reserved.id)).pipe(
-              mergeMap(() => throwError(() => error)),
-            ),
-          ),
-        );
-      }),
-    );
-  }
+		// Sử dụng transaction để đảm bảo atomicity
+		return from(
+			this.prisma.$transaction(async tx => {
+				let record;
+				try {
+					record = await tx.idempotencyRequest.create({
+						data: {
+							key,
+							scope,
+							requestHash,
+							method: request.method.toUpperCase(),
+							path: request.originalUrl ?? request.url,
+							userId: this.getUserId(request),
+							status: 'IN_PROGRESS',
+							lockedUntil: new Date(now.getTime() + LOCK_TTL_MS),
+							expiresAt: new Date(now.getTime() + RETENTION_MS),
+						},
+					});
+				} catch (error) {
+					if (
+						error instanceof Prisma.PrismaClientKnownRequestError &&
+						error.code === 'P2002'
+					) {
+						const existing = await tx.idempotencyRequest.findUnique({
+							where: { scope_key: { scope, key } },
+						});
+						if (!existing) {
+							throw new ConflictException(
+								'Idempotency request could not be reserved',
+							);
+						}
 
-  private async reserveRequest(
-    key: string,
-    scope: string,
-    requestHash: string,
-    request: Request,
-    now: Date,
-  ) {
-    const lockedUntil = new Date(now.getTime() + LOCK_TTL_MS);
-    const expiresAt = new Date(now.getTime() + RETENTION_MS);
+						if (existing.requestHash !== requestHash) {
+							throw new ConflictException(
+								'Idempotency-Key was already used with a different request payload',
+							);
+						}
 
-    try {
-      return await this.prisma.idempotencyRequest.create({
-        data: {
-          key,
-          scope,
-          requestHash,
-          method: request.method.toUpperCase(),
-          path: request.originalUrl ?? request.url,
-          userId: this.getUserId(request),
-          status: IdempotencyStatus.IN_PROGRESS,
-          lockedUntil,
-          expiresAt,
-        },
-      });
-    } catch (error) {
-      if (!this.isUniqueViolation(error)) throw error;
-    }
+						if (existing.status === 'COMPLETED') {
+							return { action: 'replay', record: existing };
+						}
 
-    const existing = await this.prisma.idempotencyRequest.findUnique({
-      where: { scope_key: { scope, key } },
-    });
-    if (!existing) {
-      throw new ConflictException('Idempotency request could not be reserved');
-    }
-    if (existing.requestHash !== requestHash) {
-      throw new ConflictException(
-        'Idempotency-Key was already used with a different request payload',
-      );
-    }
-    if (existing.status === IdempotencyStatus.COMPLETED) return existing;
-    if (existing.lockedUntil > now) {
-      throw new ConflictException('Idempotent request is still in progress');
-    }
+						if (existing.lockedUntil > now) {
+							throw new ConflictException(
+								'Idempotent request is still in progress',
+							);
+						}
 
-    return this.prisma.idempotencyRequest.update({
-      where: { id: existing.id },
-      data: { lockedUntil },
-    });
-  }
+						const newLockedUntil = new Date(now.getTime() + LOCK_TTL_MS);
+						const updateResult = await tx.idempotencyRequest.updateMany({
+							where: {
+								id: existing.id,
+								lockedUntil: existing.lockedUntil,
+								status: 'IN_PROGRESS', // chỉ cập nhật nếu vẫn IN_PROGRESS
+							},
+							data: {
+								lockedUntil: newLockedUntil,
+							},
+						});
 
-  private async completeRequest(
-    id: string,
-    responseStatus: number,
-    responseBody: Prisma.InputJsonValue,
-  ) {
-    await this.prisma.idempotencyRequest.update({
-      where: { id },
-      data: {
-        status: IdempotencyStatus.COMPLETED,
-        responseStatus,
-        responseBody,
-      },
-    });
-  }
+						if (updateResult.count === 0) {
+							throw new ConflictException(
+								'Another request has acquired the lock, please retry',
+							);
+						}
 
-  private async releaseRequest(id: string) {
-    await this.prisma.idempotencyRequest.delete({ where: { id } }).catch(() => {
-      return undefined;
-    });
-  }
+						const updated = await tx.idempotencyRequest.findUnique({
+							where: { id: existing.id },
+						});
+						if (!updated) {
+							throw new ConflictException(
+								'Idempotency request could not be reserved',
+							);
+						}
+						return { action: 'process', record: updated };
+					}
+					throw error;
+				}
 
-  private getIdempotencyKey(request: Request) {
-    const header = request.headers[IDEMPOTENCY_HEADER];
-    const key = Array.isArray(header) ? header[0] : header;
-    return typeof key === 'string' && key.trim() ? key.trim() : undefined;
-  }
+				return { action: 'process', record };
+			}),
+		).pipe(
+			mergeMap(result => {
+				if (result.action === 'replay') {
+					if (result.record.responseStatus) {
+						response.status(result.record.responseStatus);
+					}
+					response.setHeader('Idempotency-Replayed', 'true');
+					return of(result.record.responseBody);
+				}
 
-  private getScope(request: Request, userId?: string) {
-    const routePath =
-      typeof request.route?.path === 'string'
-        ? request.route.path
-        : request.path;
-    return [
-      request.method.toUpperCase(),
-      request.baseUrl,
-      routePath,
-      userId ?? 'anonymous',
-    ].join(':');
-  }
+				response.setHeader('Idempotency-Replayed', 'false');
+				return next.handle().pipe(
+					timeout(30000), // timeout 30s
+					mergeMap(body => {
+						return from(
+							this.prisma.idempotencyRequest.update({
+								where: { id: result.record.id },
+								data: {
+									status: 'COMPLETED',
+									responseStatus: response.statusCode,
+									responseBody: this.toJsonValue(body),
+								},
+							}),
+						).pipe(mergeMap(() => of(body)));
+					}),
+					catchError(error => {
+						this.prisma.idempotencyRequest
+							.delete({ where: { id: result.record.id } })
+							.catch(e => {
+								this.logger.error('Failed to delete idempotency record', e);
+							});
+						return throwError(() => error);
+					}),
+				);
+			}),
+		);
+	}
 
-  private hashRequest(request: Request) {
-    return createHash('sha256')
-      .update(
-        this.stableStringify({
-          body: request.body ?? null,
-          params: request.params ?? null,
-          query: request.query ?? null,
-        }),
-      )
-      .digest('hex');
-  }
+	// ========== Helper methods ==========
+	private getIdempotencyKey(request: Request): string | undefined {
+		const header = request.headers['idempotency-key'];
+		const key = Array.isArray(header) ? header[0] : header;
+		return typeof key === 'string' && key.trim() ? key.trim() : undefined;
+	}
 
-  private stableStringify(value: unknown): string {
-    if (value === null || typeof value !== 'object')
-      return JSON.stringify(value);
-    if (Array.isArray(value)) {
-      return `[${value.map((item) => this.stableStringify(item)).join(',')}]`;
-    }
+	private getScope(request: Request, userId?: string): string {
+		const routePath =
+			typeof request.route?.path === 'string'
+				? request.route.path
+				: request.path;
+		return [
+			request.method.toUpperCase(),
+			request.baseUrl,
+			routePath,
+			userId ?? 'anonymous',
+		].join(':');
+	}
 
-    const object = value as Record<string, unknown>;
-    return `{${Object.keys(object)
-      .sort()
-      .map(
-        (key) => `${JSON.stringify(key)}:${this.stableStringify(object[key])}`,
-      )
-      .join(',')}}`;
-  }
+	private hashRequest(request: Request): string {
+		return createHash('sha256')
+			.update(
+				this.stableStringify({
+					body: request.body ?? null,
+					params: request.params ?? null,
+					query: request.query ?? null,
+				}),
+			)
+			.digest('hex');
+	}
 
-  private toJsonValue(value: unknown): Prisma.InputJsonValue {
-    return JSON.parse(JSON.stringify(value ?? null)) as Prisma.InputJsonValue;
-  }
+	private stableStringify(value: unknown): string {
+		if (value === null || typeof value !== 'object')
+			return JSON.stringify(value);
+		if (Array.isArray(value)) {
+			return `[${value.map(item => this.stableStringify(item)).join(',')}]`;
+		}
+		const object = value as Record<string, unknown>;
+		return `{${Object.keys(object)
+			.sort()
+			.map(key => `${JSON.stringify(key)}:${this.stableStringify(object[key])}`)
+			.join(',')}}`;
+	}
 
-  private getUserId(request: Request) {
-    const user = request.user as { id?: string; sub?: string } | undefined;
-    return user?.id ?? user?.sub;
-  }
+	private toJsonValue(value: unknown): Prisma.InputJsonValue {
+		return JSON.parse(JSON.stringify(value ?? null)) as Prisma.InputJsonValue;
+	}
 
-  private isUniqueViolation(error: unknown) {
-    return (
-      error instanceof Prisma.PrismaClientKnownRequestError &&
-      error.code === 'P2002'
-    );
-  }
+	private getUserId(request: Request): string | undefined {
+		const user = (request as any).user as
+			| { id?: string; sub?: string }
+			| undefined;
+		return user?.id ?? user?.sub;
+	}
 }
