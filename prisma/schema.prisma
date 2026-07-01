@@ -124,7 +124,7 @@ enum IdempotencyStatus {
   COMPLETED
 }
 
-// 
+//
 // BankAccount
 //
 
@@ -163,8 +163,6 @@ model Payout {
   user User @relation(fields: [userId], references: [id])
 
   @@index([userId])
-  @@index([status])
-  @@index([createdAt])
   @@index([status, createdAt])
   @@map("payouts")
 }
@@ -205,8 +203,6 @@ model User {
 
   @@index([deletedAt])
   @@index([status])
-  @@index([createdAt])
-  @@index([email, status])
   @@map("users")
 }
 
@@ -217,7 +213,6 @@ model UserRoleMapping {
   user User @relation(fields: [userId], references: [id])
 
   @@id([userId, role])
-  @@index([role])
   @@map("user_roles")
 }
 
@@ -234,10 +229,7 @@ model Session {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
-  @@index([refreshToken])
   @@index([expiresAt])
-  @@index([revokedAt])
-  @@index([userId, expiresAt])
   @@map("sessions")
 }
 
@@ -253,7 +245,6 @@ model PasswordReset {
 
   @@index([userId])
   @@index([expiresAt])
-  @@index([used])
   @@map("password_resets")
 }
 
@@ -277,7 +268,6 @@ model RolePermission {
   permission Permission @relation(fields: [permissionId], references: [id])
 
   @@id([role, permissionId])
-  @@index([permissionId])
   @@map("role_permissions")
 }
 
@@ -301,8 +291,7 @@ model Address {
 
   user User @relation(fields: [userId], references: [id])
 
-  @@index([deletedAt])
-  @@index([userId])
+  @@index([userId, deletedAt])
   @@index([userId, isDefault])
   @@map("addresses")
 }
@@ -326,10 +315,7 @@ model Shop {
   orderItems OrderItem[]
   refunds    Refund[]
 
-  @@index([deletedAt])
-  @@index([ownerId])
-  @@index([name])
-  @@index([createdAt])
+  @@index([ownerId, deletedAt])
   @@map("shops")
 }
 
@@ -358,8 +344,6 @@ model Category {
 
   @@index([parentId])
   @@index([deletedAt])
-  @@index([level])
-  @@index([path])
   @@map("categories")
 }
 
@@ -393,13 +377,8 @@ model Product {
   reviews Review[]
   stats   ProductStats?
 
-  @@index([name])
-  @@index([status])
-  @@index([createdAt])
-  @@index([shopId])
-  @@index([status, createdAt])
-  @@index([deletedAt])
-  @@index([shopId, status])
+  @@index([shopId, status, deletedAt])
+  @@index([status, deletedAt])
   @@map("products")
 }
 
@@ -445,12 +424,7 @@ model ProductVariant {
   orderItems OrderItem[]
 
   @@unique([shopId, sku])
-  @@index([productId])
-  @@index([price])
-  @@index([isActive])
-  @@index([deletedAt])
-  @@index([productId, isActive])
-  @@index([productId, price])
+  @@index([productId, isActive, deletedAt])
   @@map("product_variants")
 }
 
@@ -467,15 +441,12 @@ model Inventory {
 
   variant ProductVariant @relation(fields: [variantId], references: [id])
 
-  @@index([stock])
-  @@index([reserved])
-  @@index([version])
   @@map("inventories")
 }
 
 //
 // PRODUCT CATEGORY (N-N)
-// 
+//
 
 model ProductCategory {
   productId  String
@@ -485,7 +456,6 @@ model ProductCategory {
   category Category @relation(fields: [categoryId], references: [id])
 
   @@id([productId, categoryId])
-  @@index([categoryId])
   @@map("product_category")
 }
 
@@ -504,8 +474,6 @@ model ProductImage {
   product Product @relation(fields: [productId], references: [id])
 
   @@index([productId])
-  @@index([productId, isPrimary])
-  @@index([sortOrder])
   @@map("product_image")
 }
 
@@ -534,7 +502,6 @@ model Attribute {
   categoryAttributes CategoryAttribute[]
 
   @@index([categoryId])
-  @@index([name])
   @@map("attributes")
 }
 
@@ -559,11 +526,10 @@ model VariantAttribute {
   attributeValue AttributeValue @relation(fields: [attributeValueId], references: [id])
 
   @@id([variantId, attributeValueId])
-  @@index([attributeValueId])
   @@map("variant_attribute")
 }
 
-// 
+//
 // CATEGORY ATTRIBUTE (N-N)
 //
 
@@ -600,8 +566,6 @@ model Cart {
 
   @@index([userId])
   @@index([status])
-  @@index([expiresAt])
-  @@index([status, expiresAt])
   @@map("carts")
 }
 
@@ -620,7 +584,6 @@ model CartItem {
 
   @@unique([cartId, variantId])
   @@index([cartId])
-  @@index([variantId])
   @@map("cart_items")
 }
 
@@ -652,15 +615,11 @@ model Order {
   paymentItems PaymentItem[]
   refunds      Refund[]
 
-  @@index([userId])
-  @@index([shopId])
-  @@index([userId, status])
-  @@index([shopId, status])
-  @@index([status, createdAt])
-  @@index([paymentStatus])
-  @@index([deletedAt])
-  @@index([createdAt])
-  @@index([confirmedAt])
+  @@index([userId, status, deletedAt])
+  @@index([shopId, status, deletedAt])
+  @@index([userId, createdAt])
+  @@index([shopId, createdAt])
+  @@index([paymentStatus, deletedAt])
   @@map("orders")
 }
 
@@ -688,10 +647,7 @@ model OrderItem {
   variant ProductVariant @relation(fields: [variantId], references: [id])
 
   @@index([orderId])
-  @@index([variantId])
   @@index([shopId])
-  @@index([deletedAt])
-  @@index([orderId, shopId])
   @@map("order_items")
 }
 
@@ -707,7 +663,7 @@ model Payment {
   status         PaymentStatus
   method         PaymentMethod
   provider       PaymentProvider?
-  providerRef    String?
+  providerRef    String?          @unique
   idempotencyKey String?          @unique
 
   createdAt DateTime  @default(now())
@@ -718,14 +674,9 @@ model Payment {
 
   items PaymentItem[]
 
-  @@index([userId])
-  @@index([status])
-  @@index([providerRef])
-  @@index([userId, status])
-  @@index([method, provider])
-  @@index([createdAt])
+  @@index([userId, status, deletedAt])
+  @@index([status, createdAt])
   @@index([deletedAt])
-  @@index([idempotencyKey])
   @@map("payments")
 }
 
@@ -741,7 +692,6 @@ model PaymentItem {
   order   Order   @relation(fields: [orderId], references: [id])
 
   @@unique([paymentId, orderId])
-  @@index([orderId])
   @@map("payment_items")
 }
 
@@ -766,12 +716,9 @@ model Refund {
   order Order @relation(fields: [orderId], references: [id])
   shop  Shop  @relation(fields: [shopId], references: [id])
 
-  @@index([userId])
+  @@index([userId, status, deletedAt])
+  @@index([shopId, status, deletedAt])
   @@index([orderId])
-  @@index([shopId])
-  @@index([status])
-  @@index([createdAt])
-  @@index([deletedAt])
   @@map("refunds")
 }
 
@@ -791,8 +738,7 @@ model LedgerAccount {
   owner User? @relation(fields: [ownerId], references: [id])
 
   @@unique([ownerId, type])
-  @@index([ownerId])
-  @@index([type])
+  @@index([ownerId, type])
   @@map("ledger_accounts")
 }
 
@@ -808,11 +754,7 @@ model LedgerEntry {
   createdAt DateTime @default(now())
 
   @@unique([accountId, transactionId, category])
-  @@index([accountId])
   @@index([transactionId])
-  @@index([reference])
-  @@index([createdAt])
-  @@index([accountId, createdAt])
   @@map("ledger_entry")
 }
 
@@ -833,10 +775,7 @@ model IdempotencyRequest {
   updatedAt      DateTime          @updatedAt
 
   @@unique([scope, key])
-  @@index([userId])
-  @@index([status])
   @@index([expiresAt])
-  @@index([lockedUntil])
   @@map("idempotency_requests")
 }
 
@@ -861,10 +800,7 @@ model Shipping {
 
   order Order @relation(fields: [orderId], references: [id])
 
-  @@index([orderId])
   @@index([status])
-  @@index([trackingCode])
-  @@index([provider])
   @@map("shippings")
 }
 
@@ -887,10 +823,7 @@ model Review {
   product Product @relation(fields: [productId], references: [id])
 
   @@unique([userId, productId])
-  @@index([productId, rating])
-  @@index([userId])
-  @@index([deletedAt])
-  @@index([createdAt])
+  @@index([productId, deletedAt])
   @@map("reviews")
 }
 
@@ -915,8 +848,6 @@ model ChatRoom {
   @@unique([buyerId, sellerId])
   @@index([buyerId])
   @@index([sellerId])
-  @@index([deletedAt])
-  @@index([updatedAt])
   @@map("chat_rooms")
 }
 
@@ -934,11 +865,8 @@ model Message {
   room   ChatRoom @relation(fields: [roomId], references: [id])
   sender User     @relation(fields: [senderId], references: [id])
 
-  @@index([roomId])
   @@index([roomId, createdAt])
   @@index([senderId])
-  @@index([deletedAt])
-  @@index([createdAt])
   @@map("messages")
 }
 
@@ -958,10 +886,7 @@ model Notification {
 
   user User @relation(fields: [userId], references: [id])
 
-  @@index([userId])
-  @@index([userId, isRead])
-  @@index([createdAt])
-  @@index([type])
+  @@index([userId, isRead, createdAt])
   @@map("notifications")
 }
 
@@ -984,7 +909,4 @@ model AuditLog {
 
   @@index([entity, entityId])
   @@index([createdAt])
-  @@index([action])
-  @@index([entity, entityId, createdAt])
-  @@index([actorId])
 }
