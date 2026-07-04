@@ -1,5 +1,6 @@
 // src/main.ts
 import { NestFactory } from '@nestjs/core';
+import { Logger } from 'nestjs-pino';
 import { ConfigService } from '@nestjs/config';
 import { ValidationPipe, VersioningType } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
@@ -19,6 +20,8 @@ async function bootstrap(): Promise<void> {
   const configService = app.get(ConfigService);
   const port = configService.get<number>('app.port', 3000);
   const nodeEnv = configService.get<string>('app.nodeEnv', 'development');
+
+  app.useLogger(app.get(Logger));
 
   // ===== Security middleware =====
   app.use(helmet());

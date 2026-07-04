@@ -1,5 +1,6 @@
 // src/app.module.ts
 import { Module } from '@nestjs/common';
+import { LoggerModule } from 'nestjs-pino';
 import { ConfigModule } from '@nestjs/config';
 import { APP_FILTER, APP_INTERCEPTOR, APP_GUARD } from '@nestjs/core';
 
@@ -33,6 +34,22 @@ import { ShippingModule } from './modules/shipping/shipping.module';
 
 @Module({
   imports: [
+    LoggerModule.forRoot({
+      pinoHttp: {
+        level: process.env.LOG_LEVEL !== 'production' ? 'debug' : 'info',
+        transport:
+          process.env.NODE_ENV !== 'production'
+            ? {
+                target: 'pino-pretty',
+                options: {
+                  colorize: true,
+                  translateTime: 'SYS:standard',
+                  ignore: 'pid,hostname',
+                },
+              }
+            : undefined,
+      },
+    }),
     ConfigModule.forRoot({
       isGlobal: true,
       cache: true,

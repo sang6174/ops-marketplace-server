@@ -27,6 +27,8 @@
     "paths": {
       "@/*": ["src/*"],
       "@common/*": ["src/common/*"],
+      "@core/*": ["src/core/*"],
+      "@domain/*": ["src/domain/*"],
       "@modules/*": ["src/modules/*"],
       "@configs": ["src/configs/index.ts"],
       "@configs/*": ["src/configs/*"],
