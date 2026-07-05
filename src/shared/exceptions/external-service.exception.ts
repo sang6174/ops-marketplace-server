@@ -1,9 +1,8 @@
-// core/exceptions/external-service.exception.ts
 import { BaseException, ExceptionSeverity } from './base.exception';
 import {
   ErrorDevelopmentResponse,
   ErrorProductionResponse,
-} from '@/shared/dto/error-response.dto';
+} from '@shared/dto/error-response.dto';
 
 export class ExternalServiceException extends BaseException {
   constructor(

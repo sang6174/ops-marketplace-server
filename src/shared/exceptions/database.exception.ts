@@ -2,7 +2,7 @@ import { BaseException, ExceptionSeverity } from './base.exception';
 import {
   ErrorDevelopmentResponse,
   ErrorProductionResponse,
-} from '@/shared/dto/error-response.dto';
+} from '@shared/dto/error-response.dto';
 
 export class DatabaseException extends BaseException {
   constructor(
@@ -49,7 +49,6 @@ export class DatabaseException extends BaseException {
   }
 }
 
-// Các exception database cụ thể
 export class RecordNotFoundException extends DatabaseException {
   constructor(entity: string, id: string) {
     super(`Record not found: ${entity} with id ${id}`, 'FIND_ONE', entity, {

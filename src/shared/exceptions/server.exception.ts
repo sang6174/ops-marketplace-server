@@ -2,7 +2,7 @@ import { BaseException, ExceptionSeverity } from './base.exception';
 import {
   ErrorDevelopmentResponse,
   ErrorProductionResponse,
-} from '@/shared/dto/error-response.dto';
+} from '@shared/dto/error-response.dto';
 
 export class ServerException extends BaseException {
   constructor(

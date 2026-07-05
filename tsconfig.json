@@ -30,6 +30,7 @@
       "@core/*": ["src/core/*"],
       "@domain/*": ["src/domain/*"],
       "@modules/*": ["src/modules/*"],
+      "@shared/*": ["src/shared/*"],
       "@configs": ["src/configs/index.ts"],
       "@configs/*": ["src/configs/*"],
       "@infrastructure/*": ["src/infrastructure/*"]

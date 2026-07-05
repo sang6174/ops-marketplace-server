@@ -1,55 +1,96 @@
-// src/common/utils/index.ts
-import * as bcrypt from 'bcrypt';
-import { randomUUID } from 'crypto';
 import { Request } from 'express';
-import { PAGINATION, SALT_ROUNDS } from '../constants';
+import { v4 as uuidv4 } from 'uuid';
+import * as bcrypt from 'bcrypt';
 
-// ===== Password =====
+export const getRequestId = (request: Request): string => {
+  const existingRequestId = request.headers['x-request-id'];
+  if (typeof existingRequestId === 'string') {
+    return existingRequestId;
+  }
+  return uuidv4();
+};
 
-export async function hashPassword(password: string): Promise<string> {
-  return bcrypt.hash(password, SALT_ROUNDS);
+export const hashPassword = async (password: string): Promise<string> => {
+  const saltRounds = 10;
+  return bcrypt.hash(password, saltRounds);
+};
+
+export const comparePassword = async (
+  password: string,
+  hash: string,
+): Promise<boolean> => {
+  return bcrypt.compare(password, hash);
+};
+
+export interface PaginationOptions {
+  page: number;
+  limit: number;
+  skip?: number;
 }
 
-export async function comparePassword(
-  plain: string,
-  hashed: string,
-): Promise<boolean> {
-  return bcrypt.compare(plain, hashed);
-}
-
-// ===== exclude =====
-
-export function exclude<T extends object, K extends keyof T>(
-  obj: T,
-  keys: K[],
-): Omit<T, K> {
-  return Object.fromEntries(
-    Object.entries(obj).filter(([key]) => !keys.includes(key as K)),
-  ) as Omit<T, K>;
-}
-
-// ===== skip/take =====
-
-export function toPrismaPage(page: number, limit: number) {
-  const validPage = Math.max(1, page);
-  const validLimit = Math.min(PAGINATION.MAX_LIMIT, Math.max(1, limit));
-
-  return {
-    skip: (validPage - 1) * validLimit,
-    take: validLimit,
+export interface PaginatedResponse<T> {
+  data: T[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
   };
 }
 
-// ===== request id =====
+export const toPrismaPage = (
+  page: number,
+  limit: number,
+): { skip: number; take: number } => {
+  const skip = Math.max(0, (page - 1) * limit);
+  return { skip, take: limit };
+};
 
-export function getRequestId(request: Request): string {
-  const header = request.headers['x-request-id'];
-  const requestId = Array.isArray(header) ? header[0] : header;
+export const exclude = <T>(
+  obj: T,
+  keys: (keyof T)[],
+): Partial<T> => {
+  const result = { ...obj };
+  keys.forEach((key) => {
+    delete result[key];
+  });
+  return result;
+};
 
-  if (requestId) return requestId;
+export const maskSensitiveData = (
+  data: any,
+  sensitiveFields: string[] = [
+    'password',
+    'passwordConfirmation',
+    'token',
+    'refreshToken',
+    'secret',
+    'authorization',
+    'apiKey',
+    'creditCard',
+    'ssn',
+  ],
+): any => {
+  if (data === null || data === undefined) return data;
 
-  const generatedRequestId = randomUUID();
-  request.headers['x-request-id'] = generatedRequestId;
+  if (typeof data === 'string') return data;
 
-  return generatedRequestId;
-}
+  if (Array.isArray(data)) {
+    return data.map((item) => maskSensitiveData(item, sensitiveFields));
+  }
+
+  if (typeof data === 'object') {
+    const masked: Record<string, any> = {};
+    for (const [key, value] of Object.entries(data)) {
+      const lowerKey = key.toLowerCase();
+      if (sensitiveFields.some((field) => lowerKey.includes(field))) {
+        masked[key] = '[FILTERED]';
+      } else {
+        masked[key] = maskSensitiveData(value, sensitiveFields);
+      }
+    }
+    return masked;
+  }
+
+  return data;
+};

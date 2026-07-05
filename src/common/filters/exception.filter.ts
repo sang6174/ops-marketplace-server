@@ -4,7 +4,6 @@ import {
   ArgumentsHost,
   HttpStatus,
   Injectable,
-  Logger,
 } from '@nestjs/common';
 import { Response, Request } from 'express';
 import {
@@ -15,27 +14,30 @@ import {
   ConflictException,
 } from '@nestjs/common';
 import { Prisma } from '@infrastructure/generated/prisma/client';
-import { BaseException } from '../exceptions/base.exception';
+import {
+  BaseException,
+  ClientException,
+  ValidationException,
+  DatabaseException,
+  ServerException,
+} from '@shared/exceptions';
 import {
   ErrorProductionResponse,
   ErrorDevelopmentResponse,
-} from '@/shared/dto/error-response.dto';
-import {
-  ClientException,
-  ValidationException,
-} from '../exceptions/client.exception';
-import { DatabaseException } from '../exceptions/database.exception';
-import { ServerException } from '../exceptions/server.exception';
+} from '@shared/dto/error-response.dto';
 import { ConfigService } from '@nestjs/config';
 import { getRequestId } from '@common/utils';
+import { LoggerService } from '@common/services/logger.service';
 
 @Catch()
 @Injectable()
 export class BaseExceptionFilter implements ExceptionFilter {
   private readonly isDevelopment: boolean;
-  private readonly logger = new Logger(BaseExceptionFilter.name);
 
-  constructor(private readonly configService: ConfigService) {
+  constructor(
+    private readonly configService: ConfigService,
+    private readonly logger: LoggerService,
+  ) {
     this.isDevelopment = configService.get('NODE_ENV') !== 'production';
   }
 
@@ -83,12 +85,12 @@ export class BaseExceptionFilter implements ExceptionFilter {
       errorResponse.requestId = requestId;
 
       if (status >= 500) {
-        this.logger.error(
-          `Prisma error ${exception.code}: ${exception.message}`,
-          exception.stack,
-          'ExceptionFilter',
-          { path, code, requestId },
-        );
+        this.logger.logException(code, `Prisma error ${exception.code}: ${exception.message}`, 'HIGH', {
+          requestId,
+          path,
+          prismaCode: exception.code,
+          stack: exception.stack,
+        });
       }
     } else if (exception instanceof Prisma.PrismaClientValidationError) {
       errorResponse = this.isDevelopment
@@ -110,10 +112,11 @@ export class BaseExceptionFilter implements ExceptionFilter {
           );
       errorResponse.requestId = requestId;
 
-      this.logger.warn(
+      this.logger.logException(
+        'PRISMA_VALIDATION_ERROR',
         `Prisma validation error: ${exception.message}`,
-        'ExceptionFilter',
-        { path, requestId },
+        'MEDIUM',
+        { requestId, path, stack: exception.stack },
       );
     } else if (exception instanceof BadRequestException) {
       const responseObj = exception.getResponse();
@@ -200,11 +203,16 @@ export class BaseExceptionFilter implements ExceptionFilter {
       errorResponse.requestId = requestId;
       shouldLog = true;
 
-      this.logger.error(
+      this.logger.logException(
+        'UNHANDLED_EXCEPTION',
         `[UNHANDLED] ${exception.message}`,
-        exception.stack,
-        'ExceptionFilter',
-        { path, type: exception?.constructor?.name, requestId },
+        'CRITICAL',
+        {
+          requestId,
+          path,
+          type: exception?.constructor?.name,
+          stack: exception.stack,
+        },
       );
     }
 
@@ -263,45 +271,12 @@ export class BaseExceptionFilter implements ExceptionFilter {
   private logException(exception: BaseException, path: string): void {
     const { severity, code, message, context, cause } = exception;
 
-    const logData = {
-      code,
+    this.logger.logException(code, message, severity, {
       path,
       context,
-      cause: cause?.message,
+      causeMessage: cause?.message,
       stack: cause?.stack || exception.stack,
-    };
-
-    switch (severity) {
-      case 'CRITICAL':
-        this.logger.error(
-          `[CRITICAL] ${message}`,
-          exception.stack,
-          'ExceptionFilter',
-          logData,
-        );
-        break;
-      case 'HIGH':
-        this.logger.error(
-          `[${code}] ${message}`,
-          exception.stack,
-          'ExceptionFilter',
-          logData,
-        );
-        break;
-      case 'MEDIUM':
-        this.logger.warn(`[${code}] ${message}`, 'ExceptionFilter', logData);
-        break;
-      case 'LOW':
-        this.logger.log(`[${code}] ${message}`, 'ExceptionFilter', logData);
-        break;
-      default:
-        this.logger.error(
-          `[UNKNOWN] ${message}`,
-          exception.stack,
-          'ExceptionFilter',
-          logData,
-        );
-    }
+    });
   }
 
   private extractValidationErrors(responseObj: any): Record<string, string[]> {
