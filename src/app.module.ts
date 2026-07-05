@@ -13,7 +13,7 @@ import {
   shippingConfig,
 } from './configs/index';
 import { PrismaModule } from '@infrastructure/prisma/prisma.module';
-import { GlobalExceptionFilter } from '@common/filters/global-exception.filter';
+import { BaseExceptionFilter } from '@common/filters';
 import { TransformInterceptor } from '@common/interceptors/transform.interceptor';
 import { LoggingInterceptor } from '@common/interceptors/logging.interceptor';
 import { IdempotencyInterceptor } from '@common/interceptors/idempotency.interceptor';
@@ -81,7 +81,7 @@ import { ShippingModule } from './modules/shipping/shipping.module';
   providers: [
     {
       provide: APP_FILTER,
-      useClass: GlobalExceptionFilter,
+      useClass: BaseExceptionFilter,
     },
     {
       provide: APP_INTERCEPTOR,
