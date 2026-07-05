@@ -12,6 +12,7 @@ import {
   paymentConfig,
 } from './configs/index';
 import { PrismaModule } from '@infrastructure/prisma/prisma.module';
+import { CommonModule } from '@common/common.module';
 import { BaseExceptionFilter } from '@common/filters';
 import { TransformInterceptor } from '@common/interceptors/transform.interceptor';
 import { LoggingInterceptor } from '@common/interceptors/logging.interceptor';
@@ -61,6 +62,7 @@ import { LedgerModule } from './modules/ledger/ledger.module';
     }),
 
     PrismaModule,
+    CommonModule,
     AuthModule,
     UsersModule,
     AdminModule,
