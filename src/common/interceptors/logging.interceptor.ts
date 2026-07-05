@@ -2,13 +2,13 @@ import {
   CallHandler,
   ExecutionContext,
   Injectable,
-  Logger,
   NestInterceptor,
 } from '@nestjs/common';
 import { Request, Response } from 'express';
 import { Observable } from 'rxjs';
 import { tap } from 'rxjs/operators';
 import { getRequestId } from '@common/utils';
+import { LoggerService } from '@common/services/logger.service';
 
 const SENSITIVE_FIELDS = [
   'password',
@@ -21,7 +21,7 @@ const SENSITIVE_FIELDS = [
 
 @Injectable()
 export class LoggingInterceptor implements NestInterceptor {
-  private readonly logger = new Logger('HTTP');
+  constructor(private readonly logger: LoggerService) {}
 
   intercept(context: ExecutionContext, next: CallHandler): Observable<unknown> {
     const ctx = context.switchToHttp();
@@ -35,9 +35,12 @@ export class LoggingInterceptor implements NestInterceptor {
     const safeBody = this.sanitize(req.body);
     const safeQuery = this.sanitize(req.query);
 
-    this.logger.debug(
-      `REQUEST: ${method} ${url} - ${requestId} | User: ${user?.id ?? 'anonymous'} | Body: ${JSON.stringify(safeBody)} | Query: ${JSON.stringify(safeQuery)}`,
-    );
+    this.logger.logRequest(method, url, {
+      requestId,
+      userId: user?.id ?? 'anonymous',
+      body: safeBody,
+      query: safeQuery,
+    });
 
     return next.handle().pipe(
       tap({
@@ -47,28 +50,21 @@ export class LoggingInterceptor implements NestInterceptor {
 
           const safeResponse = this.sanitize(responseBody);
 
-          const logMessage = `${method} ${url} - ${statusCode} - ${duration}ms - ${requestId}`;
-
-          if (statusCode >= 500) {
-            this.logger.error(logMessage);
-          } else if (statusCode >= 400) {
-            this.logger.warn(logMessage);
-          } else {
-            this.logger.log(logMessage);
-          }
-
-          if (statusCode >= 400 || process.env.LOG_RESPONSE_BODY === 'true') {
-            this.logger.debug(`RESPONSE BODY: ${JSON.stringify(safeResponse)}`);
-          }
+          this.logger.logResponse(method, url, statusCode, duration, {
+            requestId,
+            userId: user?.id ?? 'anonymous',
+            ...(statusCode >= 400 || process.env.LOG_RESPONSE_BODY === 'true'
+              ? { responseBody: safeResponse }
+              : {}),
+          });
         },
         error: (error) => {
           const duration = Date.now() - startTime;
-          const statusCode = error?.status ?? error?.statusCode ?? 500;
 
-          this.logger.error(
-            `ERROR: ${method} ${url} - ${statusCode} - ${duration}ms - ${requestId}`,
-            error.stack,
-          );
+          this.logger.logHttpError(method, url, duration, error, {
+            requestId,
+            userId: user?.id ?? 'anonymous',
+          });
         },
       }),
     );
