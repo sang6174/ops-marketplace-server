@@ -159,7 +159,6 @@ export class OrdersService {
       include: {
         items: true,
         address: true,
-        shipping: true,
       },
     });
 
@@ -186,7 +185,6 @@ export class OrdersService {
       include: {
         items: true,
         address: true,
-        shipping: true,
       },
     });
 

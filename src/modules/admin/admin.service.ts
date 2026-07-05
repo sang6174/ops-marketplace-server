@@ -398,7 +398,6 @@ export class AdminService {
           user: { select: { id: true, email: true, name: true } },
           items: true,
           address: true,
-          shipping: true,
         },
         orderBy: { createdAt: 'desc' },
       }),
@@ -415,7 +414,6 @@ export class AdminService {
         user: { select: { id: true, email: true, name: true } },
         items: true,
         address: true,
-        shipping: true,
         paymentItems: true,
       },
     });

@@ -10,7 +10,6 @@ import {
   databaseConfig,
   mailConfig,
   paymentConfig,
-  shippingConfig,
 } from './configs/index';
 import { PrismaModule } from '@infrastructure/prisma/prisma.module';
 import { BaseExceptionFilter } from '@common/filters';
@@ -30,7 +29,6 @@ import { OrdersModule } from './modules/order/orders.module';
 import { PaymentsModule } from './modules/payment/payments.module';
 import { PayoutsModule } from './modules/payout/payouts.module';
 import { LedgerModule } from './modules/ledger/ledger.module';
-import { ShippingModule } from './modules/shipping/shipping.module';
 
 @Module({
   imports: [
@@ -59,7 +57,6 @@ import { ShippingModule } from './modules/shipping/shipping.module';
         databaseConfig,
         mailConfig,
         paymentConfig,
-        shippingConfig,
       ],
     }),
 
@@ -75,7 +72,6 @@ import { ShippingModule } from './modules/shipping/shipping.module';
     PaymentsModule,
     PayoutsModule,
     LedgerModule,
-    ShippingModule,
   ],
 
   providers: [
