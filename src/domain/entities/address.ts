@@ -1,11 +1,4 @@
-import {
-  IProvince,
-  IDistrict,
-  IWard,
-  IAddress,
-} from '../interfaces/address.interface';
-
-export class Province implements IProvince {
+export class Province {
   constructor(
     public readonly id: number,
     public readonly name: string,
@@ -13,7 +6,7 @@ export class Province implements IProvince {
   ) {}
 }
 
-export class District implements IDistrict {
+export class District {
   constructor(
     public readonly id: number,
     public readonly name: string,
@@ -22,7 +15,7 @@ export class District implements IDistrict {
   ) {}
 }
 
-export class Ward implements IWard {
+export class Ward {
   constructor(
     public readonly id: number,
     public readonly name: string,
@@ -31,7 +24,7 @@ export class Ward implements IWard {
   ) {}
 }
 
-export class Address implements IAddress {
+export class Address {
   constructor(
     public readonly id: string,
     public readonly userId: string,
