@@ -1,5 +1,5 @@
-import { Address } from './address';
-import { BuyerType, UserRole, SubAdminRole } from './enums.enum';
+import { Address, AdministrativeDivision } from './address';
+import { BuyerType, UserRole, SubAdminRole, VehicleType } from './enums.enum';
 
 export abstract class User {
   constructor(
@@ -302,5 +302,167 @@ export class Admin extends User {
   changeSubRole(newSubRole: SubAdminRole): void {
     this._subRole = newSubRole;
     this._touch();
+  }
+}
+export class Shipper {
+  private constructor(
+    public readonly id: string,
+    public readonly userId: string,
+    private _vehicleType: VehicleType,
+    private _licensePlate: string,
+    private _driverLicense: string,
+    private _vehicleDescription: string | null,
+    private _operatingAreas: AdministrativeDivision[],
+    private _isAvailable: boolean,
+    private _currentLat: number | null,
+    private _currentLng: number | null,
+    private _rating: number | null,
+    private _totalDeliveries: number,
+    public readonly createdAt: Date,
+    private _updatedAt: Date,
+    private _deletedAt: Date | null,
+  ) {}
+
+  static create(props: {
+    userId: string;
+    vehicleType: VehicleType;
+    licensePlate: string;
+    driverLicense: string;
+    vehicleDescription?: string;
+    operatingAreas: AdministrativeDivision[];
+  }): Shipper {
+    return new Shipper(
+      crypto.randomUUID(),
+      props.userId,
+      props.vehicleType,
+      props.licensePlate,
+      props.driverLicense,
+      props.vehicleDescription || null,
+      props.operatingAreas,
+      true, // mặc định có sẵn
+      null,
+      null,
+      null,
+      0,
+      new Date(),
+      new Date(),
+      null,
+    );
+  }
+
+  get vehicleType(): VehicleType {
+    return this._vehicleType;
+  }
+
+  get licensePlate(): string {
+    return this._licensePlate;
+  }
+
+  get driverLicense(): string {
+    return this._driverLicense;
+  }
+
+  get vehicleDescription(): string | null {
+    return this._vehicleDescription;
+  }
+
+  get operatingAreas(): AdministrativeDivision[] {
+    return [...this._operatingAreas];
+  }
+
+  get isAvailable(): boolean {
+    return this._isAvailable;
+  }
+
+  get currentLocation(): { lat: number | null; lng: number | null } {
+    return { lat: this._currentLat, lng: this._currentLng };
+  }
+
+  get rating(): number | null {
+    return this._rating;
+  }
+
+  get totalDeliveries(): number {
+    return this._totalDeliveries;
+  }
+
+  get updatedAt(): Date {
+    return this._updatedAt;
+  }
+
+  get deletedAt(): Date | null {
+    return this._deletedAt;
+  }
+
+  updateVehicle(
+    vehicleType: VehicleType,
+    licensePlate: string,
+    driverLicense: string,
+    vehicleDescription?: string,
+  ): void {
+    this._vehicleType = vehicleType;
+    this._licensePlate = licensePlate;
+    this._driverLicense = driverLicense;
+    this._vehicleDescription = vehicleDescription || null;
+    this._touch();
+  }
+
+  addOperatingArea(area: AdministrativeDivision): void {
+    if (!this._operatingAreas.includes(area)) {
+      this._operatingAreas.push(area);
+      this._touch();
+    }
+  }
+
+  removeOperatingArea(area: AdministrativeDivision): void {
+    this._operatingAreas = this._operatingAreas.filter((a) => a !== area);
+    this._touch();
+  }
+
+  updateLocation(lat: number, lng: number): void {
+    this._currentLat = lat;
+    this._currentLng = lng;
+    this._touch();
+  }
+
+  setAvailable(): void {
+    this._isAvailable = true;
+    this._touch();
+  }
+
+  setUnavailable(): void {
+    this._isAvailable = false;
+    this._touch();
+  }
+
+  updateRating(newRating: number): void {
+    if (newRating < 1 || newRating > 5) {
+      throw new Error('Rating must be between 1 and 5');
+    }
+    const total = this._totalDeliveries;
+    const currentTotal = this._rating ? this._rating * total : 0;
+    this._rating = (currentTotal + newRating) / (total + 1);
+    this._totalDeliveries += 1;
+    this._touch();
+  }
+
+  delete(): void {
+    if (this._deletedAt !== null) return;
+    this._deletedAt = new Date();
+    this._isAvailable = false;
+    this._touch();
+  }
+
+  restore(): void {
+    this._deletedAt = null;
+    this._touch();
+  }
+
+  private _touch(): void {
+    this._updatedAt = new Date();
+  }
+
+  equals(other: Shipper): boolean {
+    return this.id === other.id;
   }
 }

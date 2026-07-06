@@ -1,5 +1,9 @@
-import { BuyerType, SubAdminRole } from '@domain/entities/enums.enum';
-import { Seller, Buyer, Admin } from '@domain/entities/user';
+import {
+  BuyerType,
+  SubAdminRole,
+  VehicleType,
+} from '@domain/entities/enums.enum';
+import { Seller, Buyer, Admin, Shipper } from '@domain/entities/user';
 import { Address } from '@domain/entities/address';
 import {
   CreateSellerInput,
@@ -67,4 +71,66 @@ export interface UpdateAdminInput {
 
 export interface IUpdateAdminUseCase {
   execute(id: string, dto: UpdateAdminInput): Promise<Admin>;
+}
+
+// Shipper
+
+export interface ShipperLookupCriteria {
+  deliveryAddress: Address;
+  orderWeight?: number;
+  maxDistanceKm?: number;
+  preferredVehicleTypes?: VehicleType[];
+  limit?: number;
+}
+
+export interface ShipperSuggestion {
+  shipper: Shipper;
+  distanceKm: number;
+}
+
+export interface IFindNearByShippers {
+  execute(criteria: ShipperLookupCriteria): Promise<ShipperSuggestion[]>;
+}
+
+export interface ICanShipperAccessOrder {
+  execute(
+    shipper: Shipper,
+    deliveryAddress: Address,
+    orderWeight?: number,
+  ): boolean;
+}
+
+export interface GetAvailableShippersRequest {
+  orderId: string;
+  maxDistanceKm?: number;
+  preferredVehicleTypes?: string[];
+  limit?: number;
+}
+
+export interface ShipperSuggestionDTO {
+  id: string;
+  userId: string;
+  vehicleType: string;
+  licensePlate: string;
+  vehicleDescription: string | null;
+  rating: number | null;
+  totalDeliveries: number;
+  distanceKm: number;
+  isAvailable: boolean;
+  operatingAreas: string[];
+}
+
+export interface IGetAvailableShippersUseCase {
+  execute(
+    request: GetAvailableShippersRequest,
+  ): Promise<ShipperSuggestionDTO[]>;
+}
+
+export interface SelectShipperRequest {
+  orderId: string;
+  shipperId: string;
+}
+
+export interface ISelectShipperUseCase {
+  execute(request: SelectShipperRequest): Promise<void>;
 }

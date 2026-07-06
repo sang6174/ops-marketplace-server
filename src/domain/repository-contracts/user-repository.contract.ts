@@ -1,5 +1,5 @@
-import { UserRole, BuyerType } from '@domain/entities/enums.enum';
-import { User } from '@domain/entities/user';
+import { UserRole, BuyerType, VehicleType } from '@domain/entities/enums.enum';
+import { User, Shipper } from '@domain/entities/user';
 import { IBaseRepository } from './base-repository.interface';
 
 export interface IUserRepository extends IBaseRepository<User> {
@@ -28,3 +28,27 @@ export interface IRestaurantRepository extends IBuyerRepository {
 }
 
 // Admin uses same IUserRepository contract
+
+export interface IShipperRepository {
+  findById(id: string): Promise<Shipper | null>;
+  findByUserId(userId: string): Promise<Shipper | null>;
+  findNearBy(
+    flat: number,
+    lng: number,
+    options?: {
+      maxDistanceKm?: number;
+      vehicleTypes?: VehicleType[];
+      operatingAreaCode?: string;
+      limit?: number;
+    },
+  ): Promise<Shipper[]>;
+  findActiveShippers(options?: {
+    operatingAreaCode?: string;
+    vehicleType?: VehicleType;
+    limit?: number;
+  }): Promise<Shipper[]>;
+  save(shipper: Shipper): Promise<void>;
+  delete(id: string): Promise<void>;
+  existsByDriverLicense(driverLicense: string): Promise<boolean>;
+  existsByLicensePlate(licensePlate: string): Promise<boolean>;
+}
