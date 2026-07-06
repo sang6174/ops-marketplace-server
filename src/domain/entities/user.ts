@@ -4,68 +4,303 @@ import { BuyerType, UserRole, SubAdminRole } from './enums.enum';
 export abstract class User {
   constructor(
     public readonly id: string,
-    public email: string,
-    public fullName: string,
-    public phoneNumber: string,
-    public isActive: boolean,
-    public createdAt: Date,
-    public updatedAt: Date,
+    private _email: string,
+    private _fullName: string,
+    private _phoneNumber: string,
+    private _isActive: boolean,
+    public readonly createdAt: Date,
+    private _updatedAt: Date,
   ) {}
+
+  get email(): string {
+    return this._email;
+  }
+
+  get fullName(): string {
+    return this._fullName;
+  }
+
+  get phoneNumber(): string {
+    return this._phoneNumber;
+  }
+
+  get isActive(): boolean {
+    return this._isActive;
+  }
+
+  get updatedAt(): Date {
+    return this._updatedAt;
+  }
+
+  changeEmail(newEmail: string): void {
+    const emailRegex = /^[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$/i;
+
+    if (!newEmail || !emailRegex.test(newEmail)) {
+      throw new Error('Invalid email address');
+    }
+    this._email = newEmail;
+    this._touch();
+  }
+
+  changeFullName(newName: string): void {
+    if (!newName || newName.trim().length === 0) {
+      throw new Error('Full name cannot be empty');
+    }
+    this._fullName = newName.trim();
+    this._touch();
+  }
+
+  changePhoneNumber(newPhone: string): void {
+    const phoneRegex = /^(\+84|0)[0-9]{9,10}$/;
+    if (!newPhone || !phoneRegex.test(newPhone)) {
+      throw new Error('Invalid phone number format');
+    }
+    this._phoneNumber = newPhone;
+    this._touch();
+  }
+
+  activate(): void {
+    if (this._isActive) return;
+    this._isActive = true;
+    this._touch();
+  }
+
+  deactivate(): void {
+    if (!this._isActive) return;
+    this._isActive = false;
+    this._touch();
+  }
+
+  protected _touch(): void {
+    this._updatedAt = new Date();
+  }
 }
 
 export class Seller extends User {
   constructor(
-    public readonly id: string,
-    public email: string,
-    public fullName: string,
-    public phoneNumber: string,
-    public isActive: boolean,
-    public createdAt: Date,
-    public updatedAt: Date,
-    public farmName: string,
-    public address: Address[],
-    public taxId: string,
-    public businessLicense: string,
-    public bankAccount: string,
-    public isVerified: boolean,
-    public rating: number,
+    id: string,
+    email: string,
+    fullName: string,
+    phoneNumber: string,
+    isActive: boolean,
+    createdAt: Date,
+    updatedAt: Date,
+    private _farmName: string,
+    private _addresses: Address[],
+    private _taxId: string,
+    private _businessLicense: string,
+    private _bankAccount: string,
+    private _isVerified: boolean,
+    private _rating: number,
   ) {
     super(id, email, fullName, phoneNumber, isActive, createdAt, updatedAt);
+  }
+
+  get farmName(): string {
+    return this._farmName;
+  }
+
+  get addresses(): Address[] {
+    return this._addresses;
+  }
+
+  get taxId(): string {
+    return this._taxId;
+  }
+
+  get businessLicense(): string {
+    return this._businessLicense;
+  }
+
+  get bankAccount(): string {
+    return this._bankAccount;
+  }
+
+  get isVerified(): boolean {
+    return this._isVerified;
+  }
+
+  get rating(): number {
+    return this._rating;
+  }
+
+  changeFarmName(newFarmName: string): void {
+    if (!newFarmName || newFarmName.trim().length === 0) {
+      throw new Error('Farm name cannot be empty');
+    }
+    this._farmName = newFarmName.trim();
+    this._touch();
+  }
+
+  updateAddresses(newAddresses: Address[]): void {
+    this._addresses = newAddresses;
+    this._touch();
+  }
+
+  changeBankAccount(newBankAccount: string): void {
+    if (!newBankAccount || newBankAccount.length < 5) {
+      throw new Error('Invalid bank account number');
+    }
+    this._bankAccount = newBankAccount;
+    this._touch();
+  }
+
+  verify(): void {
+    this._isVerified = true;
+    this._touch();
+  }
+
+  unverify(): void {
+    this._isVerified = false;
+    this._touch();
+  }
+
+  updateRating(newRating: number): void {
+    if (newRating < 0 || newRating > 5) {
+      throw new Error('Rating must be between 0 and 5');
+    }
+    this._rating = newRating;
+    this._touch();
+  }
+
+  changeBusinessLicense(newLicense: string): void {
+    if (!newLicense || newLicense.trim().length === 0) {
+      throw new Error('Business license cannot be empty');
+    }
+    this._businessLicense = newLicense.trim();
+    this._touch();
+  }
+
+  changeTaxId(newTaxId: string): void {
+    const taxIdRegex = /^\d{10}$/;
+    if (!newTaxId || !taxIdRegex.test(newTaxId.trim())) {
+      throw new Error('Invalid Vietnam tax ID format (must be 10 digits)');
+    }
+    this._taxId = newTaxId.trim();
+    this._touch();
   }
 }
 
 export class Buyer extends User {
   constructor(
-    public readonly id: string,
-    public email: string,
-    public fullName: string,
-    public phoneNumber: string,
-    public isActive: boolean,
-    public createdAt: Date,
-    public updatedAt: Date,
-    public buyerType: BuyerType,
-    public address: Address[],
-    public loyaltyPoints: number,
-    public taxId?: string,
-    public companyName?: string,
-    public businessLicense?: string,
+    id: string,
+    email: string,
+    fullName: string,
+    phoneNumber: string,
+    isActive: boolean,
+    createdAt: Date,
+    updatedAt: Date,
+    private _buyerType: BuyerType,
+    private _addresses: Address[],
+    private _loyaltyPoints: number,
+    private _taxId?: string,
+    private _companyName?: string,
+    private _businessLicense?: string,
   ) {
     super(id, email, fullName, phoneNumber, isActive, createdAt, updatedAt);
+  }
+
+  get buyerType(): BuyerType {
+    return this._buyerType;
+  }
+
+  get addresses(): Address[] {
+    return this._addresses;
+  }
+
+  get loyaltyPoints(): number {
+    return this._loyaltyPoints;
+  }
+
+  get taxId(): string | undefined {
+    return this._taxId;
+  }
+
+  get companyName(): string | undefined {
+    return this._companyName;
+  }
+
+  get businessLicense(): string | undefined {
+    return this._businessLicense;
+  }
+
+  updateAddresses(newAddresses: Address[]): void {
+    this._addresses = newAddresses;
+    this._touch();
+  }
+
+  addLoyaltyPoints(points: number): void {
+    if (points <= 0) {
+      throw new Error('Points must be greater than 0');
+    }
+    this._loyaltyPoints += points;
+    this._touch();
+  }
+
+  redeemLoyaltyPoints(points: number): void {
+    if (points <= 0) {
+      throw new Error('Points must be greater than 0');
+    }
+    if (points > this._loyaltyPoints) {
+      throw new Error(
+        `Insufficient loyalty points. Available: ${this._loyaltyPoints}`,
+      );
+    }
+    this._loyaltyPoints -= points;
+    this._touch();
+  }
+
+  changeBuyerType(newType: BuyerType): void {
+    this._buyerType = newType;
+    this._touch();
+  }
+
+  changeCompanyName(newName?: string): void {
+    this._companyName = newName?.trim() || undefined;
+    this._touch();
+  }
+
+  changeTaxId(newTaxId?: string): void {
+    this._taxId = newTaxId?.trim() || undefined;
+    this._touch();
+  }
+
+  changeBusinessLicense(newLicense?: string): void {
+    this._businessLicense = newLicense?.trim() || undefined;
+    this._touch();
   }
 }
 
 export class Admin extends User {
   constructor(
-    public readonly id: string,
-    public email: string,
-    public fullName: string,
-    public phoneNumber: string,
-    public isActive: boolean,
-    public createdAt: Date,
-    public updatedAt: Date,
-    public role: UserRole,
-    public subRole: SubAdminRole,
+    id: string,
+    email: string,
+    fullName: string,
+    phoneNumber: string,
+    isActive: boolean,
+    createdAt: Date,
+    updatedAt: Date,
+    private _role: UserRole,
+    private _subRole: SubAdminRole,
   ) {
     super(id, email, fullName, phoneNumber, isActive, createdAt, updatedAt);
+  }
+
+  get role(): UserRole {
+    return this._role;
+  }
+
+  get subRole(): SubAdminRole {
+    return this._subRole;
+  }
+
+  changeRole(newRole: UserRole): void {
+    this._role = newRole;
+    this._touch();
+  }
+
+  changeSubRole(newSubRole: SubAdminRole): void {
+    this._subRole = newSubRole;
+    this._touch();
   }
 }

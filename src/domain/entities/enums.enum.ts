@@ -16,7 +16,7 @@ export enum SubAdminRole {
 
 export enum BuyerType {
   INDIVIDUAL = 'INDIVIDUAL',
-  WHOLESALER = 'WHOLESALER ',
+  WHOLESALER = 'WHOLESALER',
   RESTAURANT = 'RESTAURANT',
 }
 
