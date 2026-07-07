@@ -1,4 +1,13 @@
 // src/domain/entities/shipper.spec.ts
+import {
+  jest,
+  describe,
+  it,
+  expect,
+  beforeEach,
+  beforeAll,
+  afterAll,
+} from '@jest/globals';
 import { Shipper } from './user';
 import { VehicleType } from './enums.enum';
 import { Country, AdministrativeDivision } from './address';
@@ -8,7 +17,6 @@ describe('Shipper Domain Entity', () => {
   let testProvince1: AdministrativeDivision;
   let testProvince2: AdministrativeDivision;
 
-  // Bật fake timers cho toàn bộ suite
   beforeAll(() => {
     jest.useFakeTimers();
   });

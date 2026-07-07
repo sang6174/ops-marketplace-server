@@ -1,3 +1,4 @@
+import { describe, it, expect, beforeEach } from '@jest/globals';
 import { Inventory } from './inventory';
 
 describe('Inventory Domain Entity', () => {

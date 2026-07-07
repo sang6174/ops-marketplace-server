@@ -1,3 +1,4 @@
+import { describe, it, expect, beforeEach } from '@jest/globals';
 import { Cart, CartItem } from './cart';
 
 describe('CartItem Domain Value Object', () => {

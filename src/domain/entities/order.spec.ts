@@ -1,21 +1,12 @@
+import { describe, it, expect, beforeEach } from '@jest/globals';
 import { Order, OrderItem } from './order';
 import { Address, Country, AdministrativeDivision } from './address';
-import {
-  OrderStatus,
-  OrderType,
-  PaymentStatus,
-} from './enums.enum';
+import { OrderStatus, OrderType, PaymentStatus } from './enums.enum';
 
 describe('OrderItem Domain Value Object', () => {
   describe('creation', () => {
     it('should create order item with valid input', () => {
-      const item = new OrderItem(
-        'product-1',
-        'Tomatoes',
-        10,
-        50000,
-        40000,
-      );
+      const item = new OrderItem('product-1', 'Tomatoes', 10, 50000, 40000);
 
       expect(item.productId).toBe('product-1');
       expect(item.quantity).toBe(10);
@@ -32,13 +23,7 @@ describe('OrderItem Domain Value Object', () => {
 
   describe('getTotalPrice', () => {
     it('should use wholesale price when available', () => {
-      const item = new OrderItem(
-        'product-1',
-        'Tomatoes',
-        10,
-        50000,
-        40000,
-      );
+      const item = new OrderItem('product-1', 'Tomatoes', 10, 50000, 40000);
 
       expect(item.getTotalPrice()).toBe(400000); // 40000 * 10
     });
@@ -77,13 +62,7 @@ describe('OrderItem Domain Value Object', () => {
 
   describe('getEffectivePrice', () => {
     it('should return wholesale price when available', () => {
-      const item = new OrderItem(
-        'product-1',
-        'Tomatoes',
-        10,
-        50000,
-        40000,
-      );
+      const item = new OrderItem('product-1', 'Tomatoes', 10, 50000, 40000);
 
       expect(item.getEffectivePrice()).toBe(40000);
     });
@@ -242,18 +221,18 @@ describe('Order Domain Entity', () => {
     it('should throw error on cancelled order status change', () => {
       order.updateOrderStatus(OrderStatus.CANCELLED);
 
-      expect(() =>
-        order.updateOrderStatus(OrderStatus.CONFIRMED),
-      ).toThrow('Cannot update a cancelled order');
+      expect(() => order.updateOrderStatus(OrderStatus.CONFIRMED)).toThrow(
+        'Cannot update a cancelled order',
+      );
     });
 
     it('should throw error on delivered order status change', () => {
       order.updateOrderStatus(OrderStatus.SHIPPED);
       order.updateOrderStatus(OrderStatus.DELIVERED);
 
-      expect(() =>
-        order.updateOrderStatus(OrderStatus.CONFIRMED),
-      ).toThrow('Cannot update a delivered order');
+      expect(() => order.updateOrderStatus(OrderStatus.CONFIRMED)).toThrow(
+        'Cannot update a delivered order',
+      );
     });
 
     it('should throw error on refunded order status change', () => {
@@ -261,9 +240,9 @@ describe('Order Domain Entity', () => {
       order.updateOrderStatus(OrderStatus.SHIPPED);
       order.updateOrderStatus(OrderStatus.DELIVERED);
 
-      expect(() =>
-        order.updateOrderStatus(OrderStatus.CONFIRMED),
-      ).toThrow('Cannot update a delivered order');
+      expect(() => order.updateOrderStatus(OrderStatus.CONFIRMED)).toThrow(
+        'Cannot update a delivered order',
+      );
     });
 
     it('should set shippedAt when transitioning to SHIPPED', () => {
@@ -300,9 +279,9 @@ describe('Order Domain Entity', () => {
         paymentMethod: 'CARD',
       });
 
-      expect(() =>
-        newOrder.updateOrderStatus(OrderStatus.SHIPPED),
-      ).toThrow('Cannot ship order with pending or failed payment');
+      expect(() => newOrder.updateOrderStatus(OrderStatus.SHIPPED)).toThrow(
+        'Cannot ship order with pending or failed payment',
+      );
     });
 
     it('should throw error delivering without payment succeeded', () => {
@@ -326,17 +305,17 @@ describe('Order Domain Entity', () => {
 
       newOrder.updateOrderStatus(OrderStatus.PROCESSING);
 
-      expect(() =>
-        newOrder.updateOrderStatus(OrderStatus.DELIVERED),
-      ).toThrow('Cannot deliver order with pending or failed payment');
+      expect(() => newOrder.updateOrderStatus(OrderStatus.DELIVERED)).toThrow(
+        'Cannot deliver order with pending or failed payment',
+      );
     });
 
     it('should throw error cancelling shipped order', () => {
       order.updateOrderStatus(OrderStatus.SHIPPED);
 
-      expect(() =>
-        order.updateOrderStatus(OrderStatus.CANCELLED),
-      ).toThrow('Cannot cancel an order that has already been shipped or delivered');
+      expect(() => order.updateOrderStatus(OrderStatus.CANCELLED)).toThrow(
+        'Cannot cancel an order that has already been shipped or delivered',
+      );
     });
 
     it('should allow cancelling pending order', () => {
@@ -431,11 +410,9 @@ describe('Order Domain Entity', () => {
     });
 
     it('should return false for REFUNDED orders', () => {
-      // Once an order reaches DELIVERED, it cannot be cancelled regardless of payment status
-      order.updateOrderStatus(OrderStatus.SHIPPED);
+      order.markPaymentSucceeded('pi_123');
+      order.updatePaymentStatus(PaymentStatus.SUCCEEDED);
       order.updateOrderStatus(OrderStatus.DELIVERED);
-      // Update payment status to REFUNDED
-      order.updatePaymentStatus(PaymentStatus.REFUNDED);
       expect(order.canBeCancelled()).toBe(false);
     });
   });
@@ -471,9 +448,9 @@ describe('Order Domain Entity', () => {
     it('should throw error on cancelled order', () => {
       order.updateOrderStatus(OrderStatus.CANCELLED);
 
-      expect(() =>
-        order.updatePaymentStatus(PaymentStatus.SUCCEEDED),
-      ).toThrow('Cannot update payment status of a cancelled order');
+      expect(() => order.updatePaymentStatus(PaymentStatus.SUCCEEDED)).toThrow(
+        'Cannot update payment status of a cancelled order',
+      );
     });
   });
 

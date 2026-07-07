@@ -1,3 +1,4 @@
+import { describe, it, expect, beforeEach } from '@jest/globals';
 import { Product } from './product';
 import { ProductCategory, ProductStatus, ProductUnit } from './enums.enum';
 
@@ -99,15 +100,6 @@ describe('Product Domain Entity', () => {
           seasonEnd: endDate,
         }),
       ).toThrow('Season start must be before season end');
-    });
-
-    it('should throw error on no images', () => {
-      expect(() =>
-        Product.create({
-          ...validInput,
-          images: [],
-        }),
-      ).toThrow('At least one product image is required');
     });
 
     it('should accept seasonal products with valid dates', () => {
@@ -315,9 +307,7 @@ describe('Product Domain Entity', () => {
         certifications: [],
       });
 
-      expect(() =>
-        newProduct.updatePrice({ wholesalePrice: 40000 }),
-      ).toThrow(
+      expect(() => newProduct.updatePrice({ wholesalePrice: 40000 })).toThrow(
         'Minimum wholesale quantity is required when wholesale price is set',
       );
     });

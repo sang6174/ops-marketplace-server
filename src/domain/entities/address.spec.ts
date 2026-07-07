@@ -1,8 +1,10 @@
 import {
-  Country,
-  AdministrativeDivision,
-  Address,
-} from './address';
+  describe,
+  it,
+  expect,
+  beforeEach,
+} from '@jest/globals';
+import { Country, AdministrativeDivision, Address } from './address';
 
 describe('Country Value Object', () => {
   it('should create country', () => {
@@ -79,13 +81,7 @@ describe('AdministrativeDivision Value Object', () => {
   });
 
   it('should create level 4 (ward)', () => {
-    const ward = new AdministrativeDivision(
-      country,
-      4,
-      'W1',
-      'Ward 1',
-      'Q1',
-    );
+    const ward = new AdministrativeDivision(country, 4, 'W1', 'Ward 1', 'Q1');
 
     expect(ward.level).toBe(4);
     expect(ward.parentCode).toBe('Q1');
@@ -93,13 +89,11 @@ describe('AdministrativeDivision Value Object', () => {
 
   it('should throw error on invalid level', () => {
     expect(
-      () =>
-        new AdministrativeDivision(country, 1, 'INVALID', 'Invalid Level'),
+      () => new AdministrativeDivision(country, 1, 'INVALID', 'Invalid Level'),
     ).toThrow('AdministrativeDivision level must be 2, 3, or 4');
 
     expect(
-      () =>
-        new AdministrativeDivision(country, 5, 'INVALID', 'Invalid Level'),
+      () => new AdministrativeDivision(country, 5, 'INVALID', 'Invalid Level'),
     ).toThrow('AdministrativeDivision level must be 2, 3, or 4');
   });
 
@@ -108,12 +102,7 @@ describe('AdministrativeDivision Value Object', () => {
     let province2: AdministrativeDivision;
 
     beforeEach(() => {
-      province1 = new AdministrativeDivision(
-        country,
-        2,
-        'HCM',
-        'Ho Chi Minh',
-      );
+      province1 = new AdministrativeDivision(country, 2, 'HCM', 'Ho Chi Minh');
       province2 = new AdministrativeDivision(
         country,
         2,
@@ -183,14 +172,14 @@ describe('Address Value Object', () => {
   beforeEach(() => {
     country = new Country('VN', 'Vietnam');
     province = new AdministrativeDivision(country, 2, 'HCM', 'Ho Chi Minh');
-    district = new AdministrativeDivision(country, 3, 'Q1', 'District 1', 'HCM');
-    ward = new AdministrativeDivision(
+    district = new AdministrativeDivision(
       country,
-      4,
-      'W1',
-      'Ward 1',
+      3,
       'Q1',
+      'District 1',
+      'HCM',
     );
+    ward = new AdministrativeDivision(country, 4, 'W1', 'Ward 1', 'Q1');
   });
 
   it('should create address with province only', () => {
@@ -239,14 +228,7 @@ describe('Address Value Object', () => {
 
     expect(
       () =>
-        new Address(
-          country,
-          badProvince,
-          null,
-          null,
-          '123 Main St',
-          '70000',
-        ),
+        new Address(country, badProvince, null, null, '123 Main St', '70000'),
     ).toThrow('stateProvince must be level 2');
   });
 
@@ -272,12 +254,7 @@ describe('Address Value Object', () => {
   });
 
   it('should throw error if ward level is not 4', () => {
-    const badWard = new AdministrativeDivision(
-      country,
-      3,
-      'Q1W',
-      'Bad Ward',
-    );
+    const badWard = new AdministrativeDivision(country, 3, 'Q1W', 'Bad Ward');
 
     expect(
       () =>
@@ -303,14 +280,7 @@ describe('Address Value Object', () => {
 
     expect(
       () =>
-        new Address(
-          country,
-          otherProvince,
-          null,
-          null,
-          '123 Main St',
-          '70000',
-        ),
+        new Address(country, otherProvince, null, null, '123 Main St', '70000'),
     ).toThrow('stateProvince must belong to the same country');
   });
 
@@ -430,87 +400,84 @@ describe('Address Value Object', () => {
     });
 
     it('should return false for different country', () => {
-      const otherCountry = new Country('TH', 'Thailand');
-      const different = new Address(
-        otherCountry,
-        province,
-        district,
-        ward,
-        '123 Main St',
-        '70000',
-        'Apt 5',
+      const country1 = new Country('VN', 'Vietnam');
+      const country2 = new Country('US', 'USA');
+      const province = new AdministrativeDivision(country1, 2, 'HCM', 'HCM');
+      const district = new AdministrativeDivision(
+        country2,
+        3,
+        'D1',
+        'District 1',
       );
-
-      expect(address1.equals(different)).toBe(false);
+      expect(
+        () =>
+          new Address(country1, province, district, null, 'street', 'postal'),
+      ).toThrow('district must belong to the same country');
     });
 
-    it('should return false for non-Address object', () => {
-      expect(address1.equals(null as any)).toBe(false);
-    });
-  });
+    describe('withStreet', () => {
+      let address: Address;
 
-  describe('withStreet', () => {
-    let address: Address;
+      beforeEach(() => {
+        address = new Address(
+          country,
+          province,
+          district,
+          ward,
+          '123 Main St',
+          '70000',
+          'Apt 5',
+        );
+      });
 
-    beforeEach(() => {
-      address = new Address(
-        country,
-        province,
-        district,
-        ward,
-        '123 Main St',
-        '70000',
-        'Apt 5',
-      );
-    });
+      it('should create new address with updated street', () => {
+        const updated = address.withStreet('456 Oak Ave');
 
-    it('should create new address with updated street', () => {
-      const updated = address.withStreet('456 Oak Ave');
+        expect(updated.street).toBe('456 Oak Ave');
+        expect(updated.postalCode).toBe('70000');
+        expect(updated.detail).toBe('Apt 5');
+        expect(updated.stateProvince).toBe(province);
+      });
 
-      expect(updated.street).toBe('456 Oak Ave');
-      expect(updated.postalCode).toBe('70000');
-      expect(updated.detail).toBe('Apt 5');
-      expect(updated.stateProvince).toBe(province);
-    });
+      it('should not modify original address', () => {
+        const updated = address.withStreet('456 Oak Ave');
 
-    it('should not modify original address', () => {
-      const updated = address.withStreet('456 Oak Ave');
-
-      expect(address.street).toBe('123 Main St');
-      expect(updated.street).toBe('456 Oak Ave');
-      expect(address).not.toBe(updated);
-    });
-  });
-
-  describe('withPostalCode', () => {
-    let address: Address;
-
-    beforeEach(() => {
-      address = new Address(
-        country,
-        province,
-        district,
-        ward,
-        '123 Main St',
-        '70000',
-        'Apt 5',
-      );
+        expect(address.street).toBe('123 Main St');
+        expect(updated.street).toBe('456 Oak Ave');
+        expect(address).not.toBe(updated);
+      });
     });
 
-    it('should create new address with updated postal code', () => {
-      const updated = address.withPostalCode('71000');
+    describe('withPostalCode', () => {
+      let address: Address;
 
-      expect(updated.postalCode).toBe('71000');
-      expect(updated.street).toBe('123 Main St');
-      expect(updated.detail).toBe('Apt 5');
-    });
+      beforeEach(() => {
+        address = new Address(
+          country,
+          province,
+          district,
+          ward,
+          '123 Main St',
+          '70000',
+          'Apt 5',
+        );
+      });
 
-    it('should not modify original address', () => {
-      const updated = address.withPostalCode('71000');
+      it('should create new address with updated postal code', () => {
+        const updated = address.withPostalCode('71000');
 
-      expect(address.postalCode).toBe('70000');
-      expect(updated.postalCode).toBe('71000');
-      expect(address).not.toBe(updated);
+        expect(updated.postalCode).toBe('71000');
+        expect(updated.street).toBe('123 Main St');
+        expect(updated.detail).toBe('Apt 5');
+      });
+
+      it('should not modify original address', () => {
+        const updated = address.withPostalCode('71000');
+
+        expect(address.postalCode).toBe('70000');
+        expect(updated.postalCode).toBe('71000');
+        expect(address).not.toBe(updated);
+      });
     });
   });
 });

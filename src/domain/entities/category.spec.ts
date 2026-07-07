@@ -1,3 +1,4 @@
+import { describe, it, expect, beforeEach } from '@jest/globals';
 import { Category } from './category';
 
 describe('Category Domain Entity', () => {
@@ -124,9 +125,7 @@ describe('Category Domain Entity', () => {
     });
 
     it('should throw error on empty slug', () => {
-      expect(() => category.changeSlug('')).toThrow(
-        'Slug cannot be empty',
-      );
+      expect(() => category.changeSlug('')).toThrow('Slug cannot be empty');
     });
 
     it('should throw error on invalid slug format', () => {
@@ -142,9 +141,7 @@ describe('Category Domain Entity', () => {
     });
 
     it('should allow hyphens and numbers', () => {
-      expect(() =>
-        category.changeSlug('fresh-vegetables-123'),
-      ).not.toThrow();
+      expect(() => category.changeSlug('fresh-vegetables-123')).not.toThrow();
       expect(category.slug).toBe('fresh-vegetables-123');
     });
 
@@ -374,10 +371,7 @@ describe('Category Domain Entity', () => {
 
   describe('slug generation', () => {
     it('should handle spaces', () => {
-      const category = Category.create(
-        'Fresh Vegetables',
-        'fresh-vegetables',
-      );
+      const category = Category.create('Fresh Vegetables', 'fresh-vegetables');
 
       expect(category.slug).toBe('fresh-vegetables');
     });

@@ -1,3 +1,4 @@
+import { describe, it, expect, beforeEach } from '@jest/globals';
 import { Seller, Buyer, Admin } from './user';
 import { UserRole, SubAdminRole, BuyerType } from './enums.enum';
 import { Country, AdministrativeDivision, Address } from './address';
@@ -361,7 +362,11 @@ describe('User Domain Entity', () => {
       });
 
       it('should support all buyer types', () => {
-        const types = [BuyerType.INDIVIDUAL, BuyerType.WHOLESALER, BuyerType.RESTAURANT];
+        const types = [
+          BuyerType.INDIVIDUAL,
+          BuyerType.WHOLESALER,
+          BuyerType.RESTAURANT,
+        ];
         for (const type of types) {
           buyer.changeBuyerType(type);
           expect(buyer.buyerType).toBe(type);
