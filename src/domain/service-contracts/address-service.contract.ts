@@ -2,7 +2,17 @@ import {
   Address,
   AdministrativeDivision,
   Country,
-} from '@domain/entities/address';
+} from '@domain/entities/value-objects/address';
+
+export interface IAddressValidationService {
+  validate(address: Address): boolean;
+  validateHierarchy(
+    province: AdministrativeDivision,
+    district?: AdministrativeDivision,
+    ward?: AdministrativeDivision,
+  ): boolean;
+  isComplete(address: Address): boolean;
+}
 
 export interface AddressInput {
   countryCode: string;
