@@ -1,39 +1,42 @@
-import { UserRole, BuyerType, VehicleType } from '@domain/entities/enums.enum';
-import { User, Shipper } from '@domain/entities/user';
+import {
+  UserRole,
+  SubAdminRole,
+  BuyerType,
+  VehicleType,
+} from '@domain/entities/enums.enum';
+import { User } from '@domain/entities/user';
 import { IBaseRepository } from './base-repository.interface';
 
 export interface IUserRepository extends IBaseRepository<User> {
   findByEmail(email: string): Promise<User | null>;
   existsByEmail(email: string): Promise<boolean>;
-  findByType(type: UserRole): Promise<User[]>;
+  findByRole(role: UserRole): Promise<User[]>;
   findByActiveStatus(isActive: boolean): Promise<User[]>;
-}
+  findByRoles(roles: UserRole[]): Promise<User[]>;
+  findByCreatedAtRange(from: Date, to: Date): Promise<User[]>;
+  findSellersByFarmName(farmName: string): Promise<User[]>;
+  findSellersByProvince(provinceCode: string): Promise<User[]>;
+  findVerifiedSellers(): Promise<User[]>;
+  findSellersByRating(minRating: number, maxRating?: number): Promise<User[]>;
 
-export interface ISellerRepository extends IUserRepository {
-  findAllByFarmName(farmName: string): Promise<User[]>;
-  findByProvince(province: string): Promise<User[]>;
-}
+  findBuyersByType(buyerType: BuyerType): Promise<User[]>;
+  findBuyersByLoyaltyPoints(
+    minPoints: number,
+    maxPoints?: number,
+  ): Promise<User[]>;
+  findBuyersByCompanyName(companyName: string): Promise<User[]>;
+  findBuyersByTaxId(taxId: string): Promise<User[]>;
+  findBuyersByBusinessLicense(businessLicense: string): Promise<User[]>;
 
-export interface IBuyerRepository extends IUserRepository {
-  findByEmail(email: string): Promise<User | null>;
-  existsByEmail(email: string): Promise<boolean>;
-  findByLoyaltyPoints(minPoints: number, maxPoints: number): Promise<User[]>;
-  findByBuyerType(buyerType: BuyerType): Promise<User[]>;
-}
+  findAdminsBySubRole(subRole: SubAdminRole): Promise<User[]>;
+  findActiveShippers(options?: {
+    operatingAreaCode?: string;
+    vehicleType?: VehicleType;
+    limit?: number;
+  }): Promise<User[]>;
 
-export interface IRestaurantRepository extends IBuyerRepository {
-  findByCompanyName(companyName: string): Promise<User[]>;
-  findByTaxId(taxId: string): Promise<User[]>;
-  findByBusinessLicense(businessLicense: string): Promise<User[]>;
-}
-
-// Admin uses same IUserRepository contract
-
-export interface IShipperRepository {
-  findById(id: string): Promise<Shipper | null>;
-  findByUserId(userId: string): Promise<Shipper | null>;
-  findNearBy(
-    flat: number,
+  findShippersNearBy(
+    lat: number,
     lng: number,
     options?: {
       maxDistanceKm?: number;
@@ -41,14 +44,12 @@ export interface IShipperRepository {
       operatingAreaCode?: string;
       limit?: number;
     },
-  ): Promise<Shipper[]>;
-  findActiveShippers(options?: {
-    operatingAreaCode?: string;
-    vehicleType?: VehicleType;
-    limit?: number;
-  }): Promise<Shipper[]>;
-  save(shipper: Shipper): Promise<void>;
-  delete(id: string): Promise<void>;
+  ): Promise<User[]>;
+  findShippersByVehicleType(vehicleType: VehicleType): Promise<User[]>;
+  findShippersByOperatingArea(areaCode: string): Promise<User[]>;
+
   existsByDriverLicense(driverLicense: string): Promise<boolean>;
   existsByLicensePlate(licensePlate: string): Promise<boolean>;
+  existsByTaxId(taxId: string): Promise<boolean>;
+  existsByBusinessLicense(businessLicense: string): Promise<boolean>;
 }
