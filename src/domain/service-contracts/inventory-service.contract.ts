@@ -1,35 +1,12 @@
-// domain/use-case-contracts/inventory.use-cases.ts
-import { Inventory } from '@domain/entities/inventory';
-
-export interface RestockInventoryInput {
-  productId: string;
-  quantity: number;
-}
-
-export interface OutboundInventoryInput {
-  productId: string;
-  quantity: number;
-}
-
-export interface ReserveInventoryInput {
-  productId: string;
-  quantity: number;
-}
-
-export interface UnreserveInventoryInput {
-  productId: string;
-  quantity: number;
-}
-
-export interface UpdateMinStockThresholdInput {
-  productId: string;
-  minStockThreshold: number;
-}
-
-export interface GetLowStockInventoriesInput {
-  thresholdPercent?: number;
-}
-
+import { Inventory } from '../entities/inventory';
+import {
+  RestockInventoryInput,
+  OutboundInventoryInput,
+  UpdateMinStockThresholdInput,
+  GetLowStockInput,
+  ReserveStockInput,
+  UnreserveStockInput,
+} from '@/modules/inventory/interfaces/dtos/inventory.dto';
 export interface IGetInventoryByProductUseCase {
   execute(productId: string): Promise<Inventory | null>;
 }
@@ -47,11 +24,11 @@ export interface IOutboundInventoryUseCase {
 }
 
 export interface IReserveInventoryUseCase {
-  execute(input: ReserveInventoryInput): Promise<Inventory>;
+  execute(input: ReserveStockInput): Promise<Inventory>;
 }
 
 export interface IUnreserveInventoryUseCase {
-  execute(input: UnreserveInventoryInput): Promise<Inventory>;
+  execute(input: UnreserveStockInput): Promise<Inventory>;
 }
 
 export interface IUpdateMinStockThresholdUseCase {
@@ -59,7 +36,7 @@ export interface IUpdateMinStockThresholdUseCase {
 }
 
 export interface IGetLowStockInventoriesUseCase {
-  execute(input?: GetLowStockInventoriesInput): Promise<Inventory[]>;
+  execute(input?: GetLowStockInput): Promise<Inventory[]>;
 }
 
 export interface IDeleteInventoryUseCase {

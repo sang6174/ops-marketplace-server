@@ -4,8 +4,14 @@ import { OrderStatus, PaymentStatus } from '@domain/entities/enums.enum';
 import { IBaseRepository } from './base-repository.interface';
 
 export interface IOrderRepository extends IBaseRepository<Order> {
-  findByBuyerId(buyerId: string): Promise<Order[]>;
-  findBySellerId(sellerId: string): Promise<Order[]>;
+  findByBuyerId(
+    buyerId: string,
+    options?: { limit?: number; offset?: number; status?: OrderStatus },
+  ): Promise<Order[]>;
+  findBySellerId(
+    sellerId: string,
+    options?: { limit?: number; offset?: number; status?: OrderStatus },
+  ): Promise<Order[]>;
   findByStatus(status: OrderStatus): Promise<Order[]>;
   findByPaymentStatus(status: PaymentStatus): Promise<Order[]>;
   findBySellerAndStatus(
@@ -20,4 +26,5 @@ export interface IOrderRepository extends IBaseRepository<Order> {
     startDate?: Date,
     endDate?: Date,
   ): Promise<number>;
+  deleteByBuyerId(buyerId: string): Promise<void>;
 }
