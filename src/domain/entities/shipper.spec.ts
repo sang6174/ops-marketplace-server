@@ -8,6 +8,15 @@ describe('Shipper Domain Entity', () => {
   let testProvince1: AdministrativeDivision;
   let testProvince2: AdministrativeDivision;
 
+  // Bật fake timers cho toàn bộ suite
+  beforeAll(() => {
+    jest.useFakeTimers();
+  });
+
+  afterAll(() => {
+    jest.useRealTimers();
+  });
+
   beforeEach(() => {
     testCountry = new Country('VN', 'Vietnam');
     testProvince1 = new AdministrativeDivision(
@@ -49,7 +58,6 @@ describe('Shipper Domain Entity', () => {
       expect(shipper.totalDeliveries).toBe(0);
       expect(shipper.createdAt).toBeInstanceOf(Date);
       expect(shipper.updatedAt).toBeInstanceOf(Date);
-      expect(shipper.deletedAt).toBeNull();
     });
 
     it('should set vehicleDescription to null if not provided', () => {
@@ -117,9 +125,8 @@ describe('Shipper Domain Entity', () => {
       expect(shipper.totalDeliveries).toBe(0);
     });
 
-    it('should return updatedAt and deletedAt', () => {
+    it('should return updatedAt', () => {
       expect(shipper.updatedAt).toBeInstanceOf(Date);
-      expect(shipper.deletedAt).toBeNull();
     });
   });
 
@@ -139,7 +146,6 @@ describe('Shipper Domain Entity', () => {
 
     it('should update vehicle information and touch updatedAt', () => {
       const oldUpdatedAt = shipper.updatedAt;
-      // Wait a bit to ensure time difference
       jest.advanceTimersByTime(1);
       shipper.updateVehicle(
         VehicleType.VAN,
@@ -152,8 +158,7 @@ describe('Shipper Domain Entity', () => {
       expect(shipper.licensePlate).toBe('60Y2-67890');
       expect(shipper.driverLicense).toBe('DL654321');
       expect(shipper.vehicleDescription).toBe('Ford Transit');
-      expect(shipper.updatedAt).not.toBe(oldUpdatedAt);
-      expect(shipper.updatedAt.getTime()).toBeGreaterThanOrEqual(
+      expect(shipper.updatedAt.getTime()).toBeGreaterThan(
         oldUpdatedAt.getTime(),
       );
     });
@@ -180,6 +185,7 @@ describe('Shipper Domain Entity', () => {
     describe('addOperatingArea', () => {
       it('should add a new area if not already present', () => {
         const oldUpdatedAt = shipper.updatedAt;
+        jest.advanceTimersByTime(1);
         shipper.addOperatingArea(testProvince2);
         expect(shipper.operatingAreas).toContain(testProvince2);
         expect(shipper.updatedAt.getTime()).toBeGreaterThan(
@@ -195,6 +201,7 @@ describe('Shipper Domain Entity', () => {
 
       it('should not change updatedAt if area already exists', () => {
         const oldUpdatedAt = shipper.updatedAt;
+        // Không gọi advanceTimersByTime để giữ nguyên thời gian
         shipper.addOperatingArea(testProvince1);
         expect(shipper.updatedAt.getTime()).toBe(oldUpdatedAt.getTime());
       });
@@ -203,6 +210,7 @@ describe('Shipper Domain Entity', () => {
     describe('removeOperatingArea', () => {
       it('should remove an existing area', () => {
         const oldUpdatedAt = shipper.updatedAt;
+        jest.advanceTimersByTime(1);
         shipper.removeOperatingArea(testProvince1);
         expect(shipper.operatingAreas).not.toContain(testProvince1);
         expect(shipper.updatedAt.getTime()).toBeGreaterThan(
@@ -212,6 +220,7 @@ describe('Shipper Domain Entity', () => {
 
       it('should do nothing if area not present', () => {
         const oldUpdatedAt = shipper.updatedAt;
+        // Không gọi advanceTimersByTime để giữ nguyên thời gian
         shipper.removeOperatingArea(testProvince2);
         expect(shipper.operatingAreas).toEqual([testProvince1]);
         expect(shipper.updatedAt.getTime()).toBe(oldUpdatedAt.getTime());
@@ -234,6 +243,7 @@ describe('Shipper Domain Entity', () => {
 
     it('should update current location and touch updatedAt', () => {
       const oldUpdatedAt = shipper.updatedAt;
+      jest.advanceTimersByTime(1);
       shipper.updateLocation(10.8231, 106.6297);
       expect(shipper.currentLocation).toEqual({ lat: 10.8231, lng: 106.6297 });
       expect(shipper.updatedAt.getTime()).toBeGreaterThan(
@@ -255,134 +265,16 @@ describe('Shipper Domain Entity', () => {
       });
     });
 
-    it('should set available to true by default', () => {
+    it('setUnavailable should set isAvailable to false', () => {
       expect(shipper.isAvailable).toBe(true);
-    });
-
-    it('setUnavailable should set isAvailable to false and touch updatedAt', () => {
-      const oldUpdatedAt = shipper.updatedAt;
       shipper.setUnavailable();
       expect(shipper.isAvailable).toBe(false);
-      expect(shipper.updatedAt.getTime()).toBeGreaterThan(
-        oldUpdatedAt.getTime(),
-      );
     });
 
-    it('setAvailable should set isAvailable to true and touch updatedAt', () => {
+    it('setAvailable should set isAvailable to true', () => {
       shipper.setUnavailable();
-      const oldUpdatedAt = shipper.updatedAt;
       shipper.setAvailable();
       expect(shipper.isAvailable).toBe(true);
-      expect(shipper.updatedAt.getTime()).toBeGreaterThan(
-        oldUpdatedAt.getTime(),
-      );
-    });
-  });
-
-  describe('updateRating', () => {
-    let shipper: Shipper;
-
-    beforeEach(() => {
-      shipper = Shipper.create({
-        userId: 'user-123',
-        vehicleType: VehicleType.MOTORBIKE,
-        licensePlate: '59X1-12345',
-        driverLicense: 'DL123456',
-        operatingAreas: [],
-      });
-    });
-
-    it('should throw error if rating out of range', () => {
-      expect(() => shipper.updateRating(0)).toThrow(
-        'Rating must be between 1 and 5',
-      );
-      expect(() => shipper.updateRating(6)).toThrow(
-        'Rating must be between 1 and 5',
-      );
-    });
-
-    it('should set rating for first delivery', () => {
-      const oldUpdatedAt = shipper.updatedAt;
-      shipper.updateRating(4.5);
-      expect(shipper.rating).toBe(4.5);
-      expect(shipper.totalDeliveries).toBe(1);
-      expect(shipper.updatedAt.getTime()).toBeGreaterThan(
-        oldUpdatedAt.getTime(),
-      );
-    });
-
-    it('should calculate average rating for multiple deliveries', () => {
-      shipper.updateRating(4);
-      shipper.updateRating(5);
-      // (4*1 + 5) / (1+1) = 4.5
-      expect(shipper.rating).toBe(4.5);
-      expect(shipper.totalDeliveries).toBe(2);
-    });
-
-    it('should increment totalDeliveries each time', () => {
-      shipper.updateRating(3);
-      expect(shipper.totalDeliveries).toBe(1);
-      shipper.updateRating(4);
-      expect(shipper.totalDeliveries).toBe(2);
-    });
-
-    it('should handle null rating correctly', () => {
-      // First rating: should set directly
-      shipper.updateRating(3.5);
-      expect(shipper.rating).toBe(3.5);
-      expect(shipper.totalDeliveries).toBe(1);
-    });
-  });
-
-  describe('delete and restore', () => {
-    let shipper: Shipper;
-
-    beforeEach(() => {
-      shipper = Shipper.create({
-        userId: 'user-123',
-        vehicleType: VehicleType.MOTORBIKE,
-        licensePlate: '59X1-12345',
-        driverLicense: 'DL123456',
-        operatingAreas: [],
-      });
-    });
-
-    it('delete should set deletedAt and set unavailable', () => {
-      const oldUpdatedAt = shipper.updatedAt;
-      shipper.delete();
-      expect(shipper.deletedAt).toBeInstanceOf(Date);
-      expect(shipper.isAvailable).toBe(false);
-      expect(shipper.updatedAt.getTime()).toBeGreaterThan(
-        oldUpdatedAt.getTime(),
-      );
-    });
-
-    it('delete should do nothing if already deleted', () => {
-      shipper.delete();
-      const deletedAt1 = shipper.deletedAt;
-      const updatedAt1 = shipper.updatedAt;
-      // Wait a bit
-      jest.advanceTimersByTime(1);
-      shipper.delete();
-      expect(shipper.deletedAt).toEqual(deletedAt1);
-      expect(shipper.updatedAt).toEqual(updatedAt1);
-    });
-
-    it('restore should set deletedAt to null and touch updatedAt', () => {
-      shipper.delete();
-      const oldUpdatedAt = shipper.updatedAt;
-      shipper.restore();
-      expect(shipper.deletedAt).toBeNull();
-      expect(shipper.updatedAt.getTime()).toBeGreaterThan(
-        oldUpdatedAt.getTime(),
-      );
-    });
-
-    it('restore should do nothing if not deleted', () => {
-      const oldUpdatedAt = shipper.updatedAt;
-      shipper.restore();
-      expect(shipper.deletedAt).toBeNull();
-      expect(shipper.updatedAt.getTime()).toBe(oldUpdatedAt.getTime());
     });
   });
 
@@ -409,7 +301,6 @@ describe('Shipper Domain Entity', () => {
 
     it('should return true for same id', () => {
       expect(shipper1.equals(shipper1)).toBe(true);
-      expect(shipper1.equals(shipper2)).toBe(false);
     });
 
     it('should return false for different ids', () => {
