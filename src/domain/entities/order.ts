@@ -179,13 +179,13 @@ export class Order {
       return;
     }
 
-    if ((this._orderStatus) === OrderStatus.CANCELLED) {
+    if (this._orderStatus === OrderStatus.CANCELLED) {
       throw new Error('Cannot update a cancelled order');
     }
-    if ((this._orderStatus) === OrderStatus.DELIVERED) {
+    if (this._orderStatus === OrderStatus.DELIVERED) {
       throw new Error('Cannot update a delivered order');
     }
-    if ((this._orderStatus) === OrderStatus.REFUNDED) {
+    if (this._orderStatus === OrderStatus.REFUNDED) {
       throw new Error('Cannot update a refunded order');
     }
 
@@ -215,7 +215,7 @@ export class Order {
   }
 
   updatePaymentStatus(newStatus: PaymentStatus): void {
-    if ((this._orderStatus) === OrderStatus.CANCELLED) {
+    if (this._orderStatus === OrderStatus.CANCELLED) {
       throw new Error('Cannot update payment status of a cancelled order');
     }
     this._paymentStatus = newStatus;
@@ -226,6 +226,15 @@ export class Order {
     if (!paymentIntentId || paymentIntentId.trim().length === 0) {
       throw new Error('Payment intent ID cannot be empty');
     }
+    this._paymentIntentId = paymentIntentId;
+    this._touch();
+  }
+
+  markPaymentSucceeded(paymentIntentId: string): void {
+    if (this._paymentStatus !== PaymentStatus.PENDING) {
+      throw new Error('Payment is not in pending state');
+    }
+    this._paymentStatus = PaymentStatus.SUCCEEDED;
     this._paymentIntentId = paymentIntentId;
     this._touch();
   }
