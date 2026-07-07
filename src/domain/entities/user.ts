@@ -320,7 +320,6 @@ export class Shipper {
     private _totalDeliveries: number,
     public readonly createdAt: Date,
     private _updatedAt: Date,
-    private _deletedAt: Date | null,
   ) {}
 
   static create(props: {
@@ -346,7 +345,6 @@ export class Shipper {
       0,
       new Date(),
       new Date(),
-      null,
     );
   }
 
@@ -388,10 +386,6 @@ export class Shipper {
 
   get updatedAt(): Date {
     return this._updatedAt;
-  }
-
-  get deletedAt(): Date | null {
-    return this._deletedAt;
   }
 
   updateVehicle(
@@ -443,18 +437,6 @@ export class Shipper {
     const currentTotal = this._rating ? this._rating * total : 0;
     this._rating = (currentTotal + newRating) / (total + 1);
     this._totalDeliveries += 1;
-    this._touch();
-  }
-
-  delete(): void {
-    if (this._deletedAt !== null) return;
-    this._deletedAt = new Date();
-    this._isAvailable = false;
-    this._touch();
-  }
-
-  restore(): void {
-    this._deletedAt = null;
     this._touch();
   }
 
