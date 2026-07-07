@@ -2,6 +2,7 @@
 
 export class CartItem {
   constructor(
+    public readonly shopId: string,
     public readonly productId: string,
     private _quantity: number,
     private _retailPrice: number,
@@ -107,6 +108,7 @@ export class Cart {
   }
 
   addItem(
+    shopId: string,
     productId: string,
     quantity: number,
     unitPrice: number,
@@ -124,7 +126,7 @@ export class Cart {
       existing.changeQuantity(existing.quantity + quantity);
     } else {
       this._items.push(
-        new CartItem(productId, quantity, unitPrice, wholesalePrice),
+        new CartItem(shopId, productId, quantity, unitPrice, wholesalePrice),
       );
     }
     this._touch();
@@ -159,6 +161,7 @@ export class Cart {
   mergeCart(otherCart: Cart): void {
     for (const item of otherCart.items) {
       this.addItem(
+        item.shopId,
         item.productId,
         item.quantity,
         item.retailPrice,

@@ -5,6 +5,7 @@ export class Product {
   private constructor(
     public readonly id: string,
     public readonly sellerId: string,
+    public readonly shopId: string,
     private _category: ProductCategory,
     private _status: ProductStatus,
     private _name: string,
@@ -80,6 +81,7 @@ export class Product {
 
   static create(input: {
     sellerId: string;
+    shopId: string;
     category: ProductCategory;
     unit: ProductUnit;
     name: string;
@@ -122,6 +124,7 @@ export class Product {
     return new Product(
       crypto.randomUUID(),
       input.sellerId,
+      input.shopId,
       input.category,
       ProductStatus.DRAFT, // default status
       input.name.trim(),

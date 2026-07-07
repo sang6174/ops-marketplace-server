@@ -4,8 +4,9 @@ import { Cart, CartItem } from './cart';
 describe('CartItem Domain Value Object', () => {
   describe('creation', () => {
     it('should create cart item', () => {
-      const item = new CartItem('product-1', 10, 50000, 40000);
+      const item = new CartItem('shop-1', 'product-1', 10, 50000, 40000);
 
+      expect(item.shopId).toBe('shop-1');
       expect(item.productId).toBe('product-1');
       expect(item.quantity).toBe(10);
       expect(item.retailPrice).toBe(50000);
@@ -13,7 +14,7 @@ describe('CartItem Domain Value Object', () => {
     });
 
     it('should allow optional wholesale price', () => {
-      const item = new CartItem('product-1', 10, 50000);
+      const item = new CartItem('shop-1', 'product-1', 10, 50000);
 
       expect(item.wholesalePrice).toBeUndefined();
     });
@@ -21,13 +22,13 @@ describe('CartItem Domain Value Object', () => {
 
   describe('getTotalPrice', () => {
     it('should use wholesale price when available', () => {
-      const item = new CartItem('product-1', 10, 50000, 40000);
+      const item = new CartItem('shop-1', 'product-1', 10, 50000, 40000);
 
       expect(item.getTotalPrice()).toBe(400000);
     });
 
     it('should use retail price when wholesale not available', () => {
-      const item = new CartItem('product-1', 10, 50000);
+      const item = new CartItem('shop-1', 'product-1', 10, 50000);
 
       expect(item.getTotalPrice()).toBe(500000);
     });
@@ -37,7 +38,7 @@ describe('CartItem Domain Value Object', () => {
     let item: CartItem;
 
     beforeEach(() => {
-      item = new CartItem('product-1', 10, 50000);
+      item = new CartItem('shop-1', 'product-1', 10, 50000);
     });
 
     it('should update quantity', () => {
@@ -62,7 +63,7 @@ describe('CartItem Domain Value Object', () => {
     let item: CartItem;
 
     beforeEach(() => {
-      item = new CartItem('product-1', 10, 50000);
+      item = new CartItem('shop-1', 'product-1', 10, 50000);
     });
 
     it('should update retail price', () => {
@@ -87,7 +88,7 @@ describe('CartItem Domain Value Object', () => {
     let item: CartItem;
 
     beforeEach(() => {
-      item = new CartItem('product-1', 10, 50000, 40000);
+      item = new CartItem('shop-1', 'product-1', 10, 50000, 40000);
     });
 
     it('should update wholesale price', () => {
@@ -115,12 +116,12 @@ describe('CartItem Domain Value Object', () => {
 
   describe('getEffectivePrice', () => {
     it('should return wholesale price when available', () => {
-      const item = new CartItem('product-1', 10, 50000, 40000);
+      const item = new CartItem('shop-1', 'product-1', 10, 50000, 40000);
       expect(item.getEffectivePrice()).toBe(40000);
     });
 
     it('should return retail price when wholesale not available', () => {
-      const item = new CartItem('product-1', 10, 50000);
+      const item = new CartItem('shop-1', 'product-1', 10, 50000);
       expect(item.getEffectivePrice()).toBe(50000);
     });
   });
@@ -174,7 +175,7 @@ describe('Cart Domain Entity', () => {
     });
 
     it('should add new item to cart', () => {
-      cart.addItem('product-1', 10, 50000);
+      cart.addItem('shop-1', 'product-1', 10, 50000);
 
       expect(cart.items).toHaveLength(1);
       expect(cart.items[0].productId).toBe('product-1');
@@ -182,34 +183,34 @@ describe('Cart Domain Entity', () => {
     });
 
     it('should add item with wholesale price', () => {
-      cart.addItem('product-1', 10, 50000, 40000);
+      cart.addItem('shop-1', 'product-1', 10, 50000, 40000);
 
       expect(cart.items[0].wholesalePrice).toBe(40000);
     });
 
     it('should increment quantity if item already exists', () => {
-      cart.addItem('product-1', 10, 50000);
-      cart.addItem('product-1', 5, 50000);
+      cart.addItem('shop-1', 'product-1', 10, 50000);
+      cart.addItem('shop-1', 'product-1', 5, 50000);
 
       expect(cart.items).toHaveLength(1);
       expect(cart.items[0].quantity).toBe(15);
     });
 
     it('should handle multiple different items', () => {
-      cart.addItem('product-1', 10, 50000);
-      cart.addItem('product-2', 5, 30000);
+      cart.addItem('shop-1', 'product-1', 10, 50000);
+      cart.addItem('shop-1', 'product-2', 5, 30000);
 
       expect(cart.items).toHaveLength(2);
     });
 
     it('should throw error on zero quantity', () => {
-      expect(() => cart.addItem('product-1', 0, 50000)).toThrow(
+      expect(() => cart.addItem('shop-1', 'product-1', 0, 50000)).toThrow(
         'Quantity must be greater than 0',
       );
     });
 
     it('should throw error on zero price', () => {
-      expect(() => cart.addItem('product-1', 10, 0)).toThrow(
+      expect(() => cart.addItem('shop-1', 'product-1', 10, 0)).toThrow(
         'Unit price must be greater than 0',
       );
     });
@@ -337,22 +338,22 @@ describe('Cart Domain Entity', () => {
     });
 
     it('should calculate total with retail prices', () => {
-      cart.addItem('product-1', 10, 50000);
-      cart.addItem('product-2', 5, 30000);
+      cart.addItem('shop-1', 'product-1', 10, 50000);
+      cart.addItem('shop-1', 'product-2', 5, 30000);
 
       expect(cart.getTotalPrice()).toBe(10 * 50000 + 5 * 30000);
     });
 
     it('should use wholesale prices when available', () => {
-      cart.addItem('product-1', 10, 50000, 40000);
-      cart.addItem('product-2', 5, 30000, 25000);
+      cart.addItem('shop-1', 'product-1', 10, 50000, 40000);
+      cart.addItem('shop-1', 'product-2', 5, 30000, 25000);
 
       expect(cart.getTotalPrice()).toBe(10 * 40000 + 5 * 25000);
     });
 
     it('should mix retail and wholesale prices', () => {
-      cart.addItem('product-1', 10, 50000, 40000);
-      cart.addItem('product-2', 5, 30000);
+      cart.addItem('shop-1', 'product-1', 10, 50000, 40000);
+      cart.addItem('shop-1', 'product-2', 5, 30000);
 
       expect(cart.getTotalPrice()).toBe(10 * 40000 + 5 * 30000);
     });
@@ -370,9 +371,9 @@ describe('Cart Domain Entity', () => {
     });
 
     it('should sum all quantities', () => {
-      cart.addItem('product-1', 10, 50000);
-      cart.addItem('product-2', 5, 30000);
-      cart.addItem('product-3', 3, 20000);
+      cart.addItem('shop-1', 'product-1', 10, 50000);
+      cart.addItem('shop-1', 'product-2', 5, 30000);
+      cart.addItem('shop-1', 'product-3', 3, 20000);
 
       expect(cart.getTotalQuantity()).toBe(18);
     });
@@ -390,13 +391,13 @@ describe('Cart Domain Entity', () => {
     });
 
     it('should return false when items added', () => {
-      cart.addItem('product-1', 10, 50000);
+      cart.addItem('shop-1', 'product-1', 10, 50000);
 
       expect(cart.isEmpty()).toBe(false);
     });
 
     it('should return true after clearing', () => {
-      cart.addItem('product-1', 10, 50000);
+      cart.addItem('shop-1', 'product-1', 10, 50000);
       cart.clear();
 
       expect(cart.isEmpty()).toBe(true);
@@ -409,10 +410,10 @@ describe('Cart Domain Entity', () => {
 
     beforeEach(() => {
       cart1 = Cart.create('user-1');
-      cart1.addItem('product-1', 10, 50000);
+      cart1.addItem('shop-1', 'product-1', 10, 50000);
 
       cart2 = Cart.create('session-1', 'session-1');
-      cart2.addItem('product-2', 5, 30000);
+      cart2.addItem('shop-1', 'product-2', 5, 30000);
     });
 
     it('should merge items from another cart', () => {
@@ -423,8 +424,8 @@ describe('Cart Domain Entity', () => {
     });
 
     it('should combine quantities of same product', () => {
-      cart1.addItem('product-2', 3, 30000);
-      cart2.addItem('product-1', 5, 50000);
+      cart1.addItem('shop-1', 'product-2', 3, 30000);
+      cart2.addItem('shop-1', 'product-1', 5, 50000);
 
       cart1.mergeCart(cart2);
 
@@ -475,7 +476,7 @@ describe('Cart Domain Entity', () => {
     });
 
     it('should preserve items when assigning user', () => {
-      cart.addItem('product-1', 10, 50000);
+      cart.addItem('shop-1', 'product-1', 10, 50000);
       cart.assignUser('user-1');
 
       expect(cart.items).toHaveLength(1);
@@ -497,8 +498,8 @@ describe('Cart Domain Entity', () => {
 
     beforeEach(() => {
       cart = Cart.create('user-1');
-      cart.addItem('product-1', 10, 50000, 40000);
-      cart.addItem('product-2', 5, 30000);
+      cart.addItem('shop-1', 'product-1', 10, 50000, 40000);
+      cart.addItem('shop-1', 'product-2', 5, 30000);
     });
 
     it('should update retail prices', () => {
@@ -570,7 +571,7 @@ describe('Cart Domain Entity', () => {
 
     beforeEach(() => {
       cart = Cart.create('user-1');
-      cart.addItem('product-1', 10, 50000);
+      cart.addItem('shop-1', 'product-1', 10, 50000);
     });
 
     it('should return id', () => {
@@ -610,8 +611,8 @@ describe('Cart Domain Entity', () => {
 
     it('should handle full shopping flow', () => {
       // Add items
-      cart.addItem('product-1', 5, 100000, 90000);
-      cart.addItem('product-2', 3, 50000);
+      cart.addItem('shop-1', 'product-1', 5, 100000, 90000);
+      cart.addItem('shop-1', 'product-2', 3, 50000);
       expect(cart.getTotalQuantity()).toBe(8);
       expect(cart.getTotalPrice()).toBe(5 * 90000 + 3 * 50000); // 600000
 
@@ -635,10 +636,10 @@ describe('Cart Domain Entity', () => {
 
     it('should handle session-to-user conversion with merge', () => {
       const sessionCart = Cart.create(undefined, 'session-1');
-      sessionCart.addItem('product-1', 5, 100000);
+      sessionCart.addItem('shop-1', 'product-1', 5, 100000);
 
       const userCart = Cart.create('user-1');
-      userCart.addItem('product-2', 3, 50000);
+      userCart.addItem('shop-1', 'product-2', 3, 50000);
 
       userCart.mergeCart(sessionCart);
       userCart.assignUser('user-1');

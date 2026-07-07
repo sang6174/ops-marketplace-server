@@ -6,6 +6,7 @@ describe('Product Domain Entity', () => {
   describe('Product.create', () => {
     const validInput = {
       sellerId: 'seller-1',
+      shopId: 'shop-1',
       category: ProductCategory.VEGETABLE,
       unit: ProductUnit.KG,
       name: 'Fresh Tomatoes',
@@ -149,6 +150,7 @@ describe('Product Domain Entity', () => {
     beforeEach(() => {
       product = Product.create({
         sellerId: 'seller-1',
+        shopId: 'shop-1',
         category: ProductCategory.VEGETABLE,
         unit: ProductUnit.KG,
         name: 'Fresh Tomatoes',
@@ -234,6 +236,7 @@ describe('Product Domain Entity', () => {
     beforeEach(() => {
       product = Product.create({
         sellerId: 'seller-1',
+        shopId: 'shop-1',
         category: ProductCategory.VEGETABLE,
         unit: ProductUnit.KG,
         name: 'Tomatoes',
@@ -296,6 +299,7 @@ describe('Product Domain Entity', () => {
     it('should throw error if wholesale price set without min quantity', () => {
       const newProduct = Product.create({
         sellerId: 'seller-1',
+        shopId: 'shop-1',
         category: ProductCategory.VEGETABLE,
         unit: ProductUnit.KG,
         name: 'Tomatoes',
@@ -315,6 +319,7 @@ describe('Product Domain Entity', () => {
     it('should allow clearing wholesale price by setting min quantity', () => {
       const newProduct = Product.create({
         sellerId: 'seller-1',
+        shopId: 'shop-1',
         category: ProductCategory.VEGETABLE,
         unit: ProductUnit.KG,
         name: 'Tomatoes',
@@ -337,6 +342,7 @@ describe('Product Domain Entity', () => {
     beforeEach(() => {
       product = Product.create({
         sellerId: 'seller-1',
+        shopId: 'shop-1',
         category: ProductCategory.VEGETABLE,
         unit: ProductUnit.KG,
         name: 'Tomatoes',
@@ -358,6 +364,7 @@ describe('Product Domain Entity', () => {
       // Can't create with 0 price, so create with valid price then test
       const product = Product.create({
         sellerId: 'seller-1',
+        shopId: 'shop-1',
         category: ProductCategory.VEGETABLE,
         unit: ProductUnit.KG,
         name: 'Tomatoes',
@@ -385,6 +392,7 @@ describe('Product Domain Entity', () => {
       for (const status of statuses) {
         const newProduct = Product.create({
           sellerId: 'seller-1',
+          shopId: 'shop-1',
           category: ProductCategory.VEGETABLE,
           unit: ProductUnit.KG,
           name: 'Tomatoes',
@@ -421,6 +429,7 @@ describe('Product Domain Entity', () => {
     beforeEach(() => {
       product = Product.create({
         sellerId: 'seller-1',
+        shopId: 'shop-1',
         category: ProductCategory.VEGETABLE,
         unit: ProductUnit.KG,
         name: 'Tomatoes',

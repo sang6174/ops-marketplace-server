@@ -1,9 +1,10 @@
 // domain/entities/order.ts
-import { Address } from './address';
+import { Address } from './value-objects/address';
 import { OrderStatus, OrderType, PaymentStatus } from './enums.enum';
 
 export class OrderItem {
   constructor(
+    public readonly shopId: string,
     public readonly productId: string,
     public productName: string,
     private _quantity: number,
@@ -118,6 +119,7 @@ export class Order {
     subTotal: number;
     shippingFee: number;
     items: Array<{
+      shopId: string;
       productId: string;
       productName: string;
       quantity: number;
@@ -135,6 +137,7 @@ export class Order {
     const orderItems = input.items.map(
       (item) =>
         new OrderItem(
+          item.shopId,
           item.productId,
           item.productName,
           item.quantity,
