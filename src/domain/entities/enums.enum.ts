@@ -94,3 +94,29 @@ export enum PaymentMethod {
   BANK_TRANSFER = 'BANK_TRANSFER',
   COD = 'COD',
 }
+
+export enum PayoutStatus {
+  PENDING = 'PENDING',
+  PAID = 'PAID',
+  FAILED = 'FAILED',
+}
+
+export enum NotificationType {
+  ORDER = 'ORDER',
+  PAYMENT = 'PAYMENT',
+  PRODUCT = 'PRODUCT',
+  SYSTEM = 'SYSTEM',
+}
+
+export enum NotificationPriority {
+  LOW = 'LOW',
+  NORMAL = 'NORMAL',
+  HIGH = 'HIGH',
+}
+
+export enum NotificationStatus {
+  PENDING = 'PENDING',
+  SENT = 'SENT',
+  FAILED = 'FAILED',
+  READ = 'READ',
+}
