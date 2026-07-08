@@ -1,12 +1,23 @@
 import { describe, it, expect, beforeEach } from '@jest/globals';
 import { Order, OrderItem } from './order';
-import { Address, Country, AdministrativeDivision } from './value-objects/address';
+import {
+  Address,
+  Country,
+  AdministrativeDivision,
+} from './value-objects/address';
 import { OrderStatus, OrderType, PaymentStatus } from './enums.enum';
 
 describe('OrderItem Domain Value Object', () => {
   describe('creation', () => {
     it('should create order item with valid input', () => {
-      const item = new OrderItem('shop-1', 'product-1', 'Tomatoes', 10, 50000, 40000);
+      const item = new OrderItem(
+        'shop-1',
+        'product-1',
+        'Tomatoes',
+        10,
+        50000,
+        40000,
+      );
 
       expect(item.shopId).toBe('shop-1');
       expect(item.productId).toBe('product-1');
@@ -24,7 +35,14 @@ describe('OrderItem Domain Value Object', () => {
 
   describe('getTotalPrice', () => {
     it('should use wholesale price when available', () => {
-      const item = new OrderItem('shop-1', 'product-1', 'Tomatoes', 10, 50000, 40000);
+      const item = new OrderItem(
+        'shop-1',
+        'product-1',
+        'Tomatoes',
+        10,
+        50000,
+        40000,
+      );
 
       expect(item.getTotalPrice()).toBe(400000); // 40000 * 10
     });
@@ -63,7 +81,14 @@ describe('OrderItem Domain Value Object', () => {
 
   describe('getEffectivePrice', () => {
     it('should return wholesale price when available', () => {
-      const item = new OrderItem('shop-1', 'product-1', 'Tomatoes', 10, 50000, 40000);
+      const item = new OrderItem(
+        'shop-1',
+        'product-1',
+        'Tomatoes',
+        10,
+        50000,
+        40000,
+      );
 
       expect(item.getEffectivePrice()).toBe(40000);
     });
@@ -184,7 +209,6 @@ describe('Order Domain Entity', () => {
 
       expect(order.notes).toBe('Please deliver on Tuesday');
     });
-  });
   });
 
   describe('updateOrderStatus', () => {

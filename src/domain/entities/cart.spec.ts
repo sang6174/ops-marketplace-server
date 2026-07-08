@@ -217,7 +217,7 @@ describe('Cart Domain Entity', () => {
 
     it('should update updatedAt', () => {
       const oldDate = cart.updatedAt;
-      cart.addItem('product-1', 10, 50000);
+      cart.addItem('shop-1', 'product-1', 10, 50000);
 
       expect(cart.updatedAt.getTime()).toBeGreaterThanOrEqual(
         oldDate.getTime(),
@@ -230,8 +230,8 @@ describe('Cart Domain Entity', () => {
 
     beforeEach(() => {
       cart = Cart.create('user-1');
-      cart.addItem('product-1', 10, 50000);
-      cart.addItem('product-2', 5, 30000);
+      cart.addItem('shop-1', 'product-1', 10, 50000);
+      cart.addItem('shop-1', 'product-2', 5, 30000);
     });
 
     it('should update item quantity', () => {
@@ -273,8 +273,8 @@ describe('Cart Domain Entity', () => {
 
     beforeEach(() => {
       cart = Cart.create('user-1');
-      cart.addItem('product-1', 10, 50000);
-      cart.addItem('product-2', 5, 30000);
+      cart.addItem('shop-1', 'product-1', 10, 50000);
+      cart.addItem('shop-1', 'product-2', 5, 30000);
     });
 
     it('should remove item from cart', () => {
@@ -305,8 +305,8 @@ describe('Cart Domain Entity', () => {
 
     beforeEach(() => {
       cart = Cart.create('user-1');
-      cart.addItem('product-1', 10, 50000);
-      cart.addItem('product-2', 5, 30000);
+      cart.addItem('shop-1', 'product-1', 10, 50000);
+      cart.addItem('shop-1', 'product-2', 5, 30000);
     });
 
     it('should remove all items', () => {
