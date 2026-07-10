@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeEach } from '@jest/globals';
 import { BankAccount } from './BankAccount';
-import { BankName } from '../value-objects/BankName';
-import { AccountNumber } from '../value-objects/AccountNumber';
-import { AccountHolderName } from '../value-objects/AccountHolderName';
+import { BankName } from '../../value-objects/BankName';
+import { AccountNumber } from '../../value-objects/AccountNumber';
+import { AccountHolderName } from '../../value-objects/AccountHolderName';
 
 function createValidBankAccountProps(
   overrides?: Partial<{

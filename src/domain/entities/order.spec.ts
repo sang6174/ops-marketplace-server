@@ -4,7 +4,7 @@ import {
   Address,
   Country,
   AdministrativeDivision,
-} from './value-objects/address';
+} from '../value-objects/address';
 import { OrderStatus, OrderType, PaymentStatus } from './enums.enum';
 
 describe('OrderItem Domain Value Object', () => {

@@ -1,5 +1,5 @@
 // domain/entities/payout.ts
-import { Money } from './value-objects/money';
+import { Money } from '../value-objects/money';
 import { PayoutStatus } from './enums.enum';
 
 export class Payout {

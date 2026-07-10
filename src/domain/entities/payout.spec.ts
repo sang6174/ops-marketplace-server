@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from '@jest/globals';
 import { Payout } from './payout';
-import { Money } from './value-objects/money';
+import { Money } from '../value-objects/money';
 import { PayoutStatus } from './enums.enum';
 
 describe('Payout Domain Entity', () => {

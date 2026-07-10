@@ -1,5 +1,5 @@
 // domain/entities/order.ts
-import { Address } from './value-objects/address';
+import { Address } from '../value-objects/address';
 import { OrderStatus, OrderType, PaymentStatus } from './enums.enum';
 
 export class OrderItem {

@@ -1,6 +1,6 @@
-import { BankName } from '../value-objects/BankName';
-import { AccountNumber } from '../value-objects/AccountNumber';
-import { AccountHolderName } from '../value-objects/AccountHolderName';
+import { BankName } from '../../value-objects/BankName';
+import { AccountNumber } from '../../value-objects/AccountNumber';
+import { AccountHolderName } from '../../value-objects/AccountHolderName';
 
 export class BankAccount {
   private constructor(

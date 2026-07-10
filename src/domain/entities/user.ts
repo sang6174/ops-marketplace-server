@@ -1,4 +1,4 @@
-import { Address, AdministrativeDivision } from './value-objects/address';
+import { Address, AdministrativeDivision } from '../value-objects/address';
 import { BuyerType, UserRole, SubAdminRole, VehicleType } from './enums.enum';
 
 export class SellerProfile {

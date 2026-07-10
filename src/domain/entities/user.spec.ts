@@ -12,7 +12,7 @@ import {
   Country,
   AdministrativeDivision,
   Address,
-} from './value-objects/address';
+} from '../value-objects/address';
 
 describe('User Domain Entity (Composition Version)', () => {
   let testCountry: Country;
