@@ -94,29 +94,82 @@ export enum PaymentStatus {
 export enum PaymentMethod {
   CREDIT_CARD = 'CREDIT_CARD',
   DEBIT_CARD = 'DEBIT_CARD',
-  PAYPAL = 'PAYPAL',
+  STRIPE = 'STRIPE',
   MOMO = 'MOMO',
-  ZALOPAY = 'ZALOPAY',
   BANK_TRANSFER = 'BANK_TRANSFER',
 }
 
-export enum PayoutStatus {
+export enum PayoutMethodEnum {
+  BANK_TRANSFER = 'BANK_TRANSFER',
+  PAYPAL = 'STRIPE',
+  MOMO = 'MOMO',
+  CASH = 'CASH',
+}
+
+export enum PayoutStatusEnum {
   PENDING = 'PENDING',
   PAID = 'PAID',
   FAILED = 'FAILED',
 }
 
+export enum NotificationChannel {
+  INTERNAL = 'internal',
+  EMAIL = 'email',
+  SMS = 'sms',
+  PUSH = 'push',
+}
+
 export enum NotificationType {
-  ORDER = 'ORDER',
-  PAYMENT = 'PAYMENT',
-  PRODUCT = 'PRODUCT',
-  SYSTEM = 'SYSTEM',
+  // System notifications
+  SYSTEM_ALERT = 'SYSTEM_ALERT',
+  MAINTENANCE = 'MAINTENANCE',
+  UPDATE = 'UPDATE',
+
+  // Order notifications
+  ORDER_CREATED = 'ORDER_CREATED',
+  ORDER_CONFIRMED = 'ORDER_CONFIRMED',
+  ORDER_SHIPPED = 'ORDER_SHIPPED',
+  ORDER_DELIVERED = 'ORDER_DELIVERED',
+  ORDER_CANCELLED = 'ORDER_CANCELLED',
+  ORDER_REFUNDED = 'ORDER_REFUNDED',
+
+  // Payment notifications
+  PAYMENT_SUCCEEDED = 'PAYMENT_SUCCEEDED',
+  PAYMENT_FAILED = 'PAYMENT_FAILED',
+  PAYMENT_REFUNDED = 'PAYMENT_REFUNDED',
+
+  // Inventory notifications
+  LOW_STOCK = 'LOW_STOCK',
+  OUT_OF_STOCK = 'OUT_OF_STOCK',
+  RESTOCKED = 'RESTOCKED',
+
+  // User notifications
+  ACCOUNT_VERIFIED = 'ACCOUNT_VERIFIED',
+  ACCOUNT_SUSPENDED = 'ACCOUNT_SUSPENDED',
+  PASSWORD_RESET = 'PASSWORD_RESET',
+  LOGIN_ALERT = 'LOGIN_ALERT',
+
+  // Seller notifications
+  SELLER_APPROVED = 'SELLER_APPROVED',
+  SELLER_REJECTED = 'SELLER_REJECTED',
+  NEW_ORDER = 'NEW_ORDER',
+  NEW_REVIEW = 'NEW_REVIEW',
+
+  // Buyer notifications
+  ORDER_STATUS_UPDATE = 'ORDER_STATUS_UPDATE',
+  SHIPPING_UPDATE = 'SHIPPING_UPDATE',
+  PROMOTION = 'PROMOTION',
+  COUPON_EXPIRING = 'COUPON_EXPIRING',
+
+  // Custom/Other
+  CUSTOM = 'CUSTOM',
 }
 
 export enum NotificationPriority {
   LOW = 'LOW',
   NORMAL = 'NORMAL',
   HIGH = 'HIGH',
+  URGENT = 'URGENT',
 }
 
 export enum NotificationStatus {
