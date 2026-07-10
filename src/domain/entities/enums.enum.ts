@@ -36,13 +36,14 @@ export enum ShipmentStatus {
   FAILED = 'FAILED',
   RETURNED = 'RETURNED',
 }
-
 export enum ProductCategory {
-  FRUIT = 'FRUIT',
-  VEGETABLE = 'VEGETABLE',
+  FRUITS = 'FRUITS',
+  VEGETABLES = 'VEGETABLES',
+  GRAINS = 'GRAINS',
+  DAIRY = 'DAIRY',
+  MEAT = 'MEAT',
   SEAFOOD = 'SEAFOOD',
-  LIVESTOCK = 'LIVESTOCK',
-  GRAIN = 'GRAIN',
+  BEVERAGES = 'BEVERAGES',
   OTHER = 'OTHER',
 }
 
@@ -50,9 +51,13 @@ export enum ProductUnit {
   KG = 'KG',
   GRAM = 'GRAM',
   TON = 'TON',
+  LITER = 'LITER',
+  ML = 'ML',
   PIECE = 'PIECE',
   DOZEN = 'DOZEN',
   LOT = 'LOT',
+  BOX = 'BOX',
+  BUNCH = 'BUNCH',
 }
 
 export enum ProductStatus {
