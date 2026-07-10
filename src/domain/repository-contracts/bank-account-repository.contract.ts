@@ -1,4 +1,4 @@
-import { BankAccount } from '../entities/bank-account';
+import { BankAccount } from '../entities/financial/BankAccount';
 import { IBaseRepository } from './base-repository.interface';
 
 export interface IBankAccountRepository extends IBaseRepository<BankAccount> {

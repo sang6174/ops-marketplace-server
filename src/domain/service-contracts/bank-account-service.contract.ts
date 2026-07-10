@@ -1,4 +1,4 @@
-import { BankAccount } from '../entities/bank-account';
+import { BankAccount } from '../entities/financial/BankAccount';
 
 export interface IBankAccountDomainService {
   validateBankAccount(props: {
