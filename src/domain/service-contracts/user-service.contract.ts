@@ -1,5 +1,5 @@
 // src/domain/service-contract/shipper-lookup.service.ts
-import { User } from '@domain/entities/user';
+import { User } from '@/domain/entities/identities/User';
 import {
   Address,
   AdministrativeDivision,

@@ -1,13 +1,13 @@
 import { BankName } from '../../value-objects/BankName';
-import { AccountNumber } from '../../value-objects/AccountNumber';
-import { AccountHolderName } from '../../value-objects/AccountHolderName';
+import { BankAccountNumber } from '../../value-objects/BankAccountNumber';
+import { AccountHolderName } from '../../value-objects/BankAccountHolderName';
 
 export class BankAccount {
   private constructor(
     public readonly id: string,
     public readonly userId: string,
     private _bankName: BankName,
-    private _accountNo: AccountNumber,
+    private _accountNo: BankAccountNumber,
     private _accountName: AccountHolderName,
     private _isDefault: boolean,
     public readonly createdAt: Date,
@@ -17,7 +17,7 @@ export class BankAccount {
     id: string;
     userId: string;
     bankName: BankName;
-    accountNo: AccountNumber;
+    accountNo: BankAccountNumber;
     accountName: AccountHolderName;
     isDefault: boolean;
     createdAt: Date;
@@ -36,7 +36,7 @@ export class BankAccount {
   get bankName(): BankName {
     return this._bankName;
   }
-  get accountNo(): AccountNumber {
+  get accountNo(): BankAccountNumber {
     return this._accountNo;
   }
   get accountName(): AccountHolderName {
@@ -69,7 +69,7 @@ export class BankAccount {
     id: string;
     userId: string;
     bankName: BankName;
-    accountNo: AccountNumber;
+    accountNo: BankAccountNumber;
     accountName: AccountHolderName;
     isDefault: boolean;
     createdAt: Date;

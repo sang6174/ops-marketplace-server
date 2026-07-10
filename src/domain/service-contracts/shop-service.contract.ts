@@ -1,4 +1,4 @@
-import { User } from '../entities/user';
+import { User } from '../entities/identities/User';
 import { Shop } from '../entities/shop';
 
 export interface IShopDomainService {

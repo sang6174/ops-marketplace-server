@@ -1,9 +1,9 @@
 import { describe, it, expect, beforeEach } from '@jest/globals';
-import { UserFinancialProfile } from './UserFinancialProfile';
-import { BankAccount } from './BankAccount';
+import { UserFinancialProfile } from '@domain/entities/financial/UserFinancialProfile';
+import { BankAccount } from '../financial/BankAccount';
 import { BankName } from '../../value-objects/BankName';
-import { AccountNumber } from '../../value-objects/AccountNumber';
-import { AccountHolderName } from '../../value-objects/AccountHolderName';
+import { BankAccountNumber } from '../../value-objects/BankAccountNumber';
+import { AccountHolderName } from '../../value-objects/BankAccountHolderName';
 import { BankAccountNotFoundException } from '../../exceptions/DomainExceptions';
 
 function createBankAccount(params: {
@@ -29,7 +29,7 @@ function createBankAccount(params: {
     id,
     userId,
     bankName: BankName.create(bankName),
-    accountNo: AccountNumber.create(accountNo),
+    accountNo: BankAccountNumber.create(accountNo),
     accountName: AccountHolderName.create(accountName),
     isDefault,
     createdAt,

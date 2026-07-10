@@ -1,15 +1,15 @@
 import { describe, it, expect, beforeEach } from '@jest/globals';
-import { BankAccount } from './BankAccount';
+import { BankAccount } from '../financial/BankAccount';
 import { BankName } from '../../value-objects/BankName';
-import { AccountNumber } from '../../value-objects/AccountNumber';
-import { AccountHolderName } from '../../value-objects/AccountHolderName';
+import { BankAccountNumber } from '../../value-objects/BankAccountNumber';
+import { AccountHolderName } from '../../value-objects/BankAccountHolderName';
 
 function createValidBankAccountProps(
   overrides?: Partial<{
     id: string;
     userId: string;
     bankName: BankName;
-    accountNo: AccountNumber;
+    accountNo: BankAccountNumber;
     accountName: AccountHolderName;
     isDefault: boolean;
     createdAt: Date;
@@ -19,7 +19,7 @@ function createValidBankAccountProps(
     id: 'test-id-1',
     userId: 'user-123',
     bankName: BankName.create('Vietcombank'),
-    accountNo: AccountNumber.create('1234567890'),
+    accountNo: BankAccountNumber.create('1234567890'),
     accountName: AccountHolderName.create('Nguyen Van A'),
     isDefault: true,
     createdAt: new Date('2025-01-01T00:00:00.000Z'),
@@ -39,7 +39,7 @@ describe('BankAccount Domain Entity (new version)', () => {
       id: fixedId,
       userId: 'user-123',
       bankName: BankName.create('Vietcombank'),
-      accountNo: AccountNumber.create('1234567890'),
+      accountNo: BankAccountNumber.create('1234567890'),
       accountName: AccountHolderName.create('Nguyen Van A'),
       isDefault: true,
       createdAt: fixedDate,
@@ -51,7 +51,7 @@ describe('BankAccount Domain Entity (new version)', () => {
       const id = 'custom-id';
       const userId = 'user-456';
       const bankName = BankName.create('Techcombank');
-      const accountNo = AccountNumber.create('0987654321');
+      const accountNo = BankAccountNumber.create('0987654321');
       const accountName = AccountHolderName.create('Tran Thi B');
       const isDefault = false;
       const createdAt = new Date('2025-02-01T00:00:00.000Z');
@@ -97,7 +97,7 @@ describe('BankAccount Domain Entity (new version)', () => {
     });
 
     it('should return accountNo as Value Object', () => {
-      expect(bankAccount.accountNo).toBeInstanceOf(AccountNumber);
+      expect(bankAccount.accountNo).toBeInstanceOf(BankAccountNumber);
       expect(bankAccount.accountNo.value).toBe('1234567890');
     });
 
@@ -188,7 +188,7 @@ describe('BankAccount Domain Entity (new version)', () => {
         id: bankAccount.id, // cùng id
         userId: 'another-user', // khác userId nhưng không quan trọng
         bankName: BankName.create('Other'),
-        accountNo: AccountNumber.create('999'),
+        accountNo: BankAccountNumber.create('999'),
         accountName: AccountHolderName.create('Other'),
         isDefault: false,
         createdAt: new Date(),
@@ -216,7 +216,7 @@ describe('BankAccount Domain Entity (new version)', () => {
         id: 'recon-id',
         userId: 'recon-user',
         bankName: BankName.create('Recon Bank'),
-        accountNo: AccountNumber.create('111222'),
+        accountNo: BankAccountNumber.create('111222'),
         accountName: AccountHolderName.create('Recon Name'),
         isDefault: false,
         createdAt: new Date('2024-12-31'),
@@ -255,7 +255,7 @@ describe('BankAccount Domain Entity (new version)', () => {
 
     it('should allow creating with any valid Value Objects', () => {
       const bankName = BankName.create('Ngân hàng TMCP Ngoại thương Việt Nam');
-      const accountNo = AccountNumber.create('1234567890');
+      const accountNo = BankAccountNumber.create('1234567890');
       const accountName = AccountHolderName.create('Nguyễn Văn A');
 
       const account = BankAccount.create({

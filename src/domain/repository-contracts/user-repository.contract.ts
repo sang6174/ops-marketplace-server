@@ -4,7 +4,7 @@ import {
   BuyerType,
   VehicleType,
 } from '@domain/entities/enums.enum';
-import { User } from '@domain/entities/user';
+import { User } from '@/domain/entities/identities/User';
 import { IBaseRepository } from './base-repository.interface';
 
 export interface IUserRepository extends IBaseRepository<User> {
