@@ -9,7 +9,7 @@ export class CategoryName {
     if (trimmed.length > 100) {
       throw new Error('Category name must not exceed 100 characters');
     }
-    if (!/^[a-zA-Z0-9\p{L}\s\-']+$/u.test(trimmed)) {
+    if (!/^[a-zA-Z0-9\p{L}\s\-'&!]+$/u.test(trimmed)) {
       throw new Error('Category name contains invalid characters');
     }
     return new CategoryName(trimmed);

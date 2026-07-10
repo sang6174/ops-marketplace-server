@@ -1,3 +1,4 @@
+import { CategoryName } from './CategoryName';
 export class Slug {
   private constructor(private readonly _value: string) {}
 
@@ -16,13 +17,14 @@ export class Slug {
       );
     }
 
+    if (trimmed.includes('--')) {
+      throw new Error('Slug cannot contain consecutive hyphens');
+    }
+
     if (trimmed.startsWith('-') || trimmed.endsWith('-')) {
       throw new Error('Slug cannot start or end with a hyphen');
     }
 
-    if (trimmed.includes('--')) {
-      throw new Error('Slug cannot contain consecutive hyphens');
-    }
     return new Slug(trimmed);
   }
 

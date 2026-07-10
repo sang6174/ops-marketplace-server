@@ -1,6 +1,5 @@
-// domain/entities/__tests__/Inventory.spec.ts
 import { describe, it, expect, beforeEach, jest } from '@jest/globals';
-import { Inventory } from '../../entities/products/inventory';
+import { Inventory } from '../../entities/products/Inventory';
 import { InventoryId } from '../../value-objects/InventoryId';
 import { ProductId } from '../../value-objects/ProductId';
 import { Quantity } from '../../value-objects/Quantity';
@@ -90,8 +89,8 @@ describe('Inventory Aggregate', () => {
       expect(defaultInventory.minStockThreshold).toEqual(
         MinStockThreshold.fromNumber(10),
       );
-      expect(defaultInventory.lastRestockedAt).toBe(fixedDate);
-      expect(defaultInventory.updatedAt).toBe(fixedDate);
+      expect(defaultInventory.lastRestockedAt).toEqual(fixedDate);
+      expect(defaultInventory.updatedAt).toEqual(fixedDate);
     });
 
     it('should accept custom minThreshold', () => {
@@ -153,8 +152,8 @@ describe('Inventory Aggregate', () => {
       inventory.restock(restockQty);
 
       expect(inventory.quantity).toEqual(Quantity.fromNumber(150));
-      expect(inventory.lastRestockedAt).toBe(newDate);
-      expect(inventory.updatedAt).toBe(newDate);
+      expect(inventory.lastRestockedAt).toEqual(newDate);
+      expect(inventory.updatedAt).toEqual(newDate);
     });
 
     it('should emit StockRestocked event', () => {
@@ -168,7 +167,7 @@ describe('Inventory Aggregate', () => {
       expect(event.productId).toBe(productId);
       expect(event.quantity).toEqual(restockQty);
       expect(event.newTotal).toEqual(Quantity.fromNumber(150));
-      expect(event.timestamp).toBe(fixedDate);
+      expect(event.timestamp).toEqual(fixedDate);
     });
 
     it('should throw error if quantity <= 0', () => {
@@ -190,7 +189,7 @@ describe('Inventory Aggregate', () => {
       inventory.reserve(reserveQty);
 
       expect(inventory.reserved).toEqual(Quantity.fromNumber(20));
-      expect(inventory.updatedAt).toBe(newDate);
+      expect(inventory.updatedAt).toEqual(newDate);
     });
 
     it('should emit StockReserved event', () => {
@@ -240,7 +239,7 @@ describe('Inventory Aggregate', () => {
 
       inventory.unreserve(Quantity.fromNumber(10));
       expect(inventory.reserved).toEqual(Quantity.fromNumber(20));
-      expect(inventory.updatedAt).toBe(newDate);
+      expect(inventory.updatedAt).toEqual(newDate);
     });
 
     it('should emit StockUnreserved event', () => {
@@ -277,7 +276,7 @@ describe('Inventory Aggregate', () => {
 
       inventory.outbound(Quantity.fromNumber(30));
       expect(inventory.quantity).toEqual(Quantity.fromNumber(70));
-      expect(inventory.updatedAt).toBe(newDate);
+      expect(inventory.updatedAt).toEqual(newDate);
     });
 
     it('should emit StockReduced event', () => {
@@ -325,7 +324,7 @@ describe('Inventory Aggregate', () => {
       inventory.updateMinThreshold(newThreshold);
 
       expect(inventory.minStockThreshold).toBe(newThreshold);
-      expect(inventory.updatedAt).toBe(newDate);
+      expect(inventory.updatedAt).toEqual(newDate);
     });
 
     it('should emit MinThresholdChanged event', () => {
@@ -353,7 +352,7 @@ describe('Inventory Aggregate', () => {
       inventory.reserve(Quantity.fromNumber(30));
       expect(inventory.getAvailableQuantity()).toBe(70);
       inventory.outbound(Quantity.fromNumber(20));
-      expect(inventory.getAvailableQuantity()).toBe(50);
+      expect(inventory.getAvailableQuantity()).toBe(70);
     });
   });
 

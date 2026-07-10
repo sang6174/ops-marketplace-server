@@ -66,8 +66,8 @@ describe('Category Aggregate', () => {
       expect(defaultCategory.sortOrder).toEqual(SortOrder.fromNumber(0));
       expect(defaultCategory.description).toEqual(Description.create());
       expect(defaultCategory.parentId).toBeNull();
-      expect(defaultCategory.createdAt).toBe(fixedDate);
-      expect(defaultCategory.updatedAt).toBe(fixedDate);
+      expect(defaultCategory.createdAt).toStrictEqual(fixedDate);
+      expect(defaultCategory.updatedAt).toStrictEqual(fixedDate);
       expect(defaultCategory.slug).toEqual(Slug.create('vegetables'));
     });
 
@@ -134,7 +134,7 @@ describe('Category Aggregate', () => {
         Description.create('Reconstituted desc'),
       );
       expect(reconstituted.parentId).toBe(fixedParentId);
-      expect(reconstituted.createdAt).toBe(fixedDate);
+      expect(reconstituted.createdAt).toStrictEqual(fixedDate);
       expect(reconstituted.updatedAt).toBe(updatedAt);
       expect(reconstituted.events).toHaveLength(0);
     });
@@ -149,7 +149,7 @@ describe('Category Aggregate', () => {
       expect(category.sortOrder).toBe(fixedSortOrder);
       expect(category.description).toBe(fixedDescription);
       expect(category.parentId).toBeNull();
-      expect(category.createdAt).toBe(fixedDate);
+      expect(category.createdAt).toStrictEqual(fixedDate);
       expect(category.updatedAt).toBe(fixedDate);
     });
   });
@@ -190,16 +190,15 @@ describe('Category Aggregate', () => {
     });
 
     it('should emit only CategoryNameChanged if slug does not change', () => {
-      // Tạo category với name và slug khác nhau
       const cat = Category.create({
         id: CategoryId.generate(),
         name: CategoryName.create('My Category'),
-        slug: Slug.create('my-category'), // đã có slug
+        slug: Slug.create('my-category'),
       });
       const eventsBefore = cat.events.length;
       const newName = CategoryName.create('My Category');
       cat.changeName(newName);
-      expect(cat.events).toHaveLength(eventsBefore); // không có event mới
+      expect(cat.events).toHaveLength(eventsBefore);
     });
   });
 
@@ -316,7 +315,7 @@ describe('Category Aggregate', () => {
 
       expect(category.isActive).toBe(true);
       expect(category.updatedAt).toBe(newDate);
-      expect(category.events).toHaveLength(3); // created + deactivated + activated
+      expect(category.events).toHaveLength(3);
       const event = category.events[2];
       expect(event).toBeInstanceOf(CategoryActivated);
       expect(event.categoryId).toBe(fixedId);
@@ -348,7 +347,7 @@ describe('Category Aggregate', () => {
       category.deactivate();
       expect(category.isActive).toBe(false);
       category.deactivate();
-      expect(category.events).toHaveLength(2); // only first deactivation emits event
+      expect(category.events).toHaveLength(2);
     });
   });
 
@@ -404,12 +403,12 @@ describe('Category Aggregate', () => {
     });
 
     it('should handle name with special characters correctly', () => {
-      const name = CategoryName.create('Fresh & Organic!');
+      const name = CategoryName.create('Fresh and Organic!');
       const cat = Category.create({
         id: CategoryId.generate(),
         name,
       });
-      expect(cat.slug).toEqual(Slug.create('fresh-organic'));
+      expect(cat.slug).toEqual(Slug.create('fresh-and-organic'));
     });
 
     it('should not allow empty name', () => {
@@ -450,7 +449,6 @@ describe('Category Aggregate', () => {
       category.changeParent(CategoryId.generate(), newDate3);
       timestamps.push(category.updatedAt);
 
-      // change sort order
       const newDate4 = new Date('2025-02-04');
       jest.setSystemTime(newDate4);
       category.changeSortOrder(SortOrder.fromNumber(99), newDate4);

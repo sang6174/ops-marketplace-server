@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from '@jest/globals';
-import { AdminProfile } from '@domain/entities/identities/AdminProfile';
+import { AdminProfile } from '../../entities/identities/AdminProfile';
 import { UserId } from '../../value-objects/UserId';
 import { SubAdminRole } from '../enums.enum';
 

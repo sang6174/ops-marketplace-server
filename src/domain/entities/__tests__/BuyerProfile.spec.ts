@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from '@jest/globals';
 
-import { BuyerProfile } from '@domain/entities/identities/BuyerProfile';
+import { BuyerProfile } from '../../entities/identities/BuyerProfile';
 import { UserId } from '../../value-objects/UserId';
 import { BuyerType } from '../enums.enum';
 import { LoyaltyPoints } from '../../value-objects/LoyaltyPoint';
@@ -84,7 +84,7 @@ describe('BuyerProfile', () => {
         buyerType: BuyerType.BUSINESS,
         addresses: [],
         loyaltyPoints: LoyaltyPoints.fromNumber(200),
-        taxId: TaxId.create('0123456789'),
+        taxId: TaxId.create('0123456789234'),
         companyName: CompanyName.create('ABC Corp'),
         businessLicense: BusinessLicense.create('LIC-001'),
         createdAt: mockCreatedAt,
@@ -94,7 +94,7 @@ describe('BuyerProfile', () => {
       expect(reconstituted.loyaltyPoints).toEqual(
         LoyaltyPoints.fromNumber(200),
       );
-      expect(reconstituted.taxId).toEqual(TaxId.create('0123456789'));
+      expect(reconstituted.taxId).toEqual(TaxId.create('0123456789234'));
     });
   });
 
@@ -130,7 +130,7 @@ describe('BuyerProfile', () => {
     });
 
     it('should update tax ID', () => {
-      const taxId = TaxId.create('9876543210');
+      const taxId = TaxId.create('9876543210123');
       buyerProfile.updateTaxId(taxId);
       expect(buyerProfile.taxId).toBe(taxId);
     });

@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from '@jest/globals';
 
-import { SellerProfile } from '@domain/entities/identities/SellerProfile';
+import { SellerProfile } from '../../entities/identities/SellerProfile';
 import { UserId } from '../../value-objects/UserId';
 import { FarmName } from '../../value-objects/FarmName';
 import { TaxId } from '../../value-objects/TaxId';
@@ -36,7 +36,7 @@ describe('SellerProfile', () => {
   const mockUserId = UserId.create('user-123');
   const mockId = 'seller-456';
   const mockFarmName = FarmName.create('Green Farm');
-  const mockTaxId = TaxId.create('0123456789');
+  const mockTaxId = TaxId.create('0123456789123');
   const mockLicense = BusinessLicense.create('LIC-001');
   const mockBankAccount = BankAccountNumber.create('1234567890');
   const mockAddress = createMockAddress();
@@ -126,7 +126,7 @@ describe('SellerProfile', () => {
     });
 
     it('should change tax ID', () => {
-      const newTaxId = TaxId.create('9876543210');
+      const newTaxId = TaxId.create('0123456789123');
       sellerProfile.changeTaxId(newTaxId);
       expect(sellerProfile.taxId).toBe(newTaxId);
     });

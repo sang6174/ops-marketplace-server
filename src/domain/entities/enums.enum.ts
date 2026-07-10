@@ -92,12 +92,12 @@ export enum PaymentStatus {
 }
 
 export enum PaymentMethod {
-  CARD = 'CARD',
-  STRIPE = 'STRIPE',
+  CREDIT_CARD = 'CREDIT_CARD',
+  DEBIT_CARD = 'DEBIT_CARD',
+  PAYPAL = 'PAYPAL',
   MOMO = 'MOMO',
   ZALOPAY = 'ZALOPAY',
   BANK_TRANSFER = 'BANK_TRANSFER',
-  COD = 'COD',
 }
 
 export enum PayoutStatus {

@@ -185,10 +185,10 @@ describe('BankAccount Domain Entity (new version)', () => {
     it('should return true for different instance with same id', () => {
       const sameIdAccount = BankAccount.create({
         ...createValidBankAccountProps(),
-        id: bankAccount.id, // cùng id
-        userId: 'another-user', // khác userId nhưng không quan trọng
+        id: bankAccount.id,
+        userId: 'anotheruser',
         bankName: BankName.create('Other'),
-        accountNo: BankAccountNumber.create('999'),
+        accountNo: BankAccountNumber.create('123456789012'),
         accountName: AccountHolderName.create('Other'),
         isDefault: false,
         createdAt: new Date(),
@@ -216,7 +216,7 @@ describe('BankAccount Domain Entity (new version)', () => {
         id: 'recon-id',
         userId: 'recon-user',
         bankName: BankName.create('Recon Bank'),
-        accountNo: BankAccountNumber.create('111222'),
+        accountNo: BankAccountNumber.create('111222222'),
         accountName: AccountHolderName.create('Recon Name'),
         isDefault: false,
         createdAt: new Date('2024-12-31'),

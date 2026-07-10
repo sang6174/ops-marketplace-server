@@ -50,7 +50,7 @@ describe('ShipperProfile', () => {
     it('should create shipper profile with all fields', () => {
       expect(shipperProfile.id).toBe(mockId);
       expect(shipperProfile.userId).toBe(mockUserId);
-      expect(shipperProfile.vehicleType).toBe(VehicleType.MOTORCYCLE);
+      expect(shipperProfile.vehicleType).toBe(VehicleType.MOTORBIKE);
       expect(shipperProfile.licensePlate).toBe(mockLicensePlate);
       expect(shipperProfile.driverLicense).toBe(mockDriverLicense);
       expect(shipperProfile.vehicleDescription).toBe(mockVehicleDesc);
@@ -65,7 +65,7 @@ describe('ShipperProfile', () => {
       const profile = ShipperProfile.create({
         id: 'new',
         userId: mockUserId,
-        vehicleType: VehicleType.CAR,
+        vehicleType: VehicleType.TRUCK,
         licensePlate: mockLicensePlate,
         driverLicense: mockDriverLicense,
         createdAt: mockCreatedAt,
@@ -105,12 +105,12 @@ describe('ShipperProfile', () => {
       const newPlate = LicensePlate.create('XYZ-5678');
       const newLicense = DriverLicense.create('XYZ987654321');
       shipperProfile.updateVehicleInfo(
-        VehicleType.CAR,
+        VehicleType.VAN,
         newPlate,
         newLicense,
         VehicleDescription.create('Toyota'),
       );
-      expect(shipperProfile.vehicleType).toBe(VehicleType.CAR);
+      expect(shipperProfile.vehicleType).toBe(VehicleType.VAN);
       expect(shipperProfile.licensePlate).toBe(newPlate);
       expect(shipperProfile.driverLicense).toBe(newLicense);
       expect(shipperProfile.vehicleDescription).toEqual(

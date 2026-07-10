@@ -1,5 +1,4 @@
-// domain/specifications/InventorySpecifications.ts
-import { Inventory } from '../entities/products/inventory';
+import { Inventory } from '../entities/products/Inventory';
 
 export interface InventorySpecification {
   isSatisfiedBy(inventory: Inventory): boolean;

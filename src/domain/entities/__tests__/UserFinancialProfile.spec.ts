@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from '@jest/globals';
-import { UserFinancialProfile } from '@domain/entities/financial/UserFinancialProfile';
+import { UserFinancialProfile } from '../../entities/financial/UserFinancialProfile';
 import { BankAccount } from '../financial/BankAccount';
 import { BankName } from '../../value-objects/BankName';
 import { BankAccountNumber } from '../../value-objects/BankAccountNumber';
