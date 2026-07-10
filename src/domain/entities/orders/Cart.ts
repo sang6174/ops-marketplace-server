@@ -1,5 +1,3 @@
-// domain/entities/cart.ts
-
 export class CartItem {
   constructor(
     public readonly shopId: string,
@@ -51,7 +49,6 @@ export class CartItem {
     return this._wholesalePrice ?? this._retailPrice;
   }
 }
-
 export class Cart {
   private constructor(
     public readonly id: string,
@@ -66,6 +63,35 @@ export class Cart {
         'Cart must be associated with either a user or a session',
       );
     }
+  }
+
+  static create(userId?: string, sessionId?: string): Cart {
+    return new Cart(
+      crypto.randomUUID(),
+      userId ?? null,
+      sessionId ?? null,
+      [],
+      new Date(),
+      new Date(),
+    );
+  }
+
+  static reconstitute(props: {
+    id: string;
+    userId: string | null;
+    sessionId: string | null;
+    items: CartItem[];
+    createdAt: Date;
+    updatedAt: Date;
+  }): Cart {
+    return new Cart(
+      props.id,
+      props.userId,
+      props.sessionId,
+      props.items,
+      props.createdAt,
+      props.updatedAt,
+    );
   }
 
   get userId(): string | null {
@@ -96,17 +122,6 @@ export class Cart {
     return this._items.length === 0;
   }
 
-  static create(userId?: string, sessionId?: string): Cart {
-    return new Cart(
-      crypto.randomUUID(),
-      userId ?? null,
-      sessionId ?? null,
-      [],
-      new Date(),
-      new Date(),
-    );
-  }
-
   addItem(
     shopId: string,
     productId: string,
@@ -124,6 +139,10 @@ export class Cart {
     const existing = this._items.find((item) => item.productId === productId);
     if (existing) {
       existing.changeQuantity(existing.quantity + quantity);
+
+      if (wholesalePrice !== undefined) {
+        existing.changeWholesalePrice(wholesalePrice);
+      }
     } else {
       this._items.push(
         new CartItem(shopId, productId, quantity, unitPrice, wholesalePrice),
@@ -192,6 +211,7 @@ export class Cart {
         if (priceData.wholesalePrice !== undefined) {
           item.changeWholesalePrice(priceData.wholesalePrice);
         }
+        item.changeWholesalePrice(priceData.wholesalePrice);
       }
     }
     this._touch();

@@ -1,5 +1,5 @@
 // domain/repository-contracts/cart-repository.interface.ts
-import { Cart } from '@domain/entities/cart';
+import { Cart } from '@/domain/entities/orders/Cart';
 import { IBaseRepository } from './base-repository.interface';
 
 export interface ICartRepository extends IBaseRepository<Cart> {

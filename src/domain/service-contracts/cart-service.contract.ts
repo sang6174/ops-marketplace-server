@@ -1,4 +1,4 @@
-import { Cart } from '@domain/entities/cart';
+import { Cart } from '@/domain/entities/orders/Cart';
 
 export interface ICartDomainService {
   validateProductForCart(productId: string, quantity: number): Promise<boolean>;
