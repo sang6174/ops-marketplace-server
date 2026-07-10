@@ -1,5 +1,5 @@
 // domain/repository-contracts/order-repository.interface.ts
-import { Order } from '@domain/entities/order';
+import { Order } from '@/domain/entities/orders/Order';
 import { OrderStatus, PaymentStatus } from '@domain/entities/enums.enum';
 import { IBaseRepository } from './base-repository.interface';
 

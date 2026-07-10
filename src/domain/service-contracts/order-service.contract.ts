@@ -1,4 +1,4 @@
-import { Order, OrderItem } from '@domain/entities/order';
+import { Order, OrderItem } from '@/domain/entities/orders/Order';
 import { Address } from '@/domain/entities/value-objects/address';
 
 export interface OrderCalculationResult {
