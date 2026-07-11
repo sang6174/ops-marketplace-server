@@ -101,7 +101,7 @@ export enum PaymentMethod {
 
 export enum PayoutMethodEnum {
   BANK_TRANSFER = 'BANK_TRANSFER',
-  PAYPAL = 'STRIPE',
+  STRIPE = 'STRIPE',
   MOMO = 'MOMO',
   CASH = 'CASH',
 }
