@@ -1,4 +1,4 @@
-import { User } from '@/domain/entities/user';
+import { User } from '@/domain/entities/identities/User';
 import {
   CreateAdminInput,
   CreateBuyerInput,

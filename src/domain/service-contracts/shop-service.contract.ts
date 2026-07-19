@@ -1,5 +1,5 @@
 import { User } from '../entities/identities/User';
-import { Shop } from '../entities/shop';
+import { Shop } from '../entities/products/Shop';
 
 export interface IShopDomainService {
   canCreateShop(

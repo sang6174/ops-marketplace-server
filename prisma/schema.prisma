@@ -115,6 +115,8 @@ enum PaymentMethod {
   STRIPE
   MOMO
   BANK_TRANSFER
+  COD
+  ONLINE
 }
 
 enum PayoutMethod {

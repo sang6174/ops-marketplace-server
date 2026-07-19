@@ -47,13 +47,6 @@ export class CategoriesController {
   }
 
   @Public()
-  @Get(':id/attributes')
-  @ApiOperation({ summary: 'Get attributes of a category' })
-  getAttributes(@Param('id') id: string) {
-    return this.service.getAttributes(id);
-  }
-
-  @Public()
   @Get(':id')
   @ApiOperation({ summary: 'Get category details' })
   getCategory(@Param('id') id: string) {

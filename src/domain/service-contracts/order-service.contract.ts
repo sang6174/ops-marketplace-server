@@ -1,5 +1,5 @@
 import { Order, OrderItem } from '@/domain/entities/orders/Order';
-import { Address } from '@/domain/entities/value-objects/address';
+import { Address } from '@/domain/value-objects/Address';
 
 export interface OrderCalculationResult {
   subtotal: number;

@@ -25,10 +25,7 @@ import {
 import { JwtAuthGuard } from '../auth/guards';
 import {
   CreateProductDto,
-  UpdateProductDto,
-  AddVariantDto,
-  UpdateVariantDto,
-  AdjustInventoryDto,
+  SellerUpdateProductDto,
 } from '@modules/product/dtos/product.dto';
 
 @ApiTags('Shops')
@@ -112,67 +109,9 @@ export class ShopsController {
   updateProduct(
     @GetUser() user: AuthUser,
     @Param('id') id: string,
-    @Body() dto: UpdateProductDto,
+    @Body() dto: SellerUpdateProductDto,
   ) {
     return this.productsService.updateProduct(user.id, id, dto);
-  }
-
-  // POST /shops/me/products/:id/variants
-  @Post('me/products/:id/variants')
-  @UseGuards(JwtAuthGuard)
-  @Roles(UserRole.SELLER)
-  @ApiBearerAuth('JWT')
-  @ApiOperation({ summary: '[SELLER] Add a new variant of a product' })
-  addVariant(
-    @GetUser() user: AuthUser,
-    @Param('id') id: string,
-    @Body() dto: AddVariantDto,
-  ) {
-    return this.productsService.addVariant(user.id, id, dto);
-  }
-
-  // PATCH /shops/me/products/:id/variants/:vid
-  @Patch('me/products/:id/variants/:vid')
-  @UseGuards(JwtAuthGuard)
-  @Roles(UserRole.SELLER)
-  @ApiBearerAuth('JWT')
-  @ApiOperation({ summary: '[SELLER] Update a variant of a product' })
-  updateVariant(
-    @GetUser() user: AuthUser,
-    @Param('id') id: string,
-    @Param('vid') vid: string,
-    @Body() dto: UpdateVariantDto,
-  ) {
-    return this.productsService.updateVariant(user.id, id, vid, dto);
-  }
-
-  // PATCH /shops/me/products/:id/variants/:vid
-  @Patch('me/products/:id/variant/:vid')
-  @UseGuards(JwtAuthGuard)
-  @Roles(UserRole.SELLER)
-  @ApiBearerAuth('JWT')
-  @ApiOperation({ summary: '[SELLER] Cancel sales of a variant of a product' })
-  deleteVariant(
-    @GetUser() user: AuthUser,
-    @Param('id') id: string,
-    @Param('vid') vid: string,
-  ) {
-    return this.productsService.deleteVariant(user.id, id, vid);
-  }
-
-  // PATCH /shops/me/products/:id/variants/:vid/inventory
-  @Patch('me/products/:id/variants/:vid/inventory')
-  @UseGuards(JwtAuthGuard)
-  @Roles(UserRole.SELLER)
-  @ApiBearerAuth('JWT')
-  @ApiOperation({ summary: '[SELLER] Update inventory of a product' })
-  adjustInventory(
-    @GetUser() user: AuthUser,
-    @Param('id') id: string,
-    @Param('vid') vid: string,
-    @Body() dto: AdjustInventoryDto,
-  ) {
-    return this.productsService.adjustInventory(user.id, id, vid, dto);
   }
 
   // GET /shops  (public)

@@ -1,4 +1,4 @@
-import { Shipment } from '../entities/shipment';
+import { Shipment } from '../entities/orders/Shipment';
 import { ShipmentStatus } from '../entities/enums.enum';
 import { IBaseRepository } from './base-repository.interface';
 

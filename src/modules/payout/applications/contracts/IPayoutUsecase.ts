@@ -6,7 +6,7 @@ import {
   PayoutResponse,
   PayoutListResponse,
 } from '@modules/payout/interfaces/dtos/payout.dto';
-import { Money } from '@/domain/entities/value-objects/money';
+import { Money } from '@/domain/value-objects/Money';
 
 export interface ICreatePayoutUseCase {
   execute(input: CreatePayoutInput): Promise<PayoutResponse>;

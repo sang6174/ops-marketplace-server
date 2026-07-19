@@ -2,7 +2,6 @@ import {
   ShopResponse,
   GetShopsByOwnerInput,
   GetShopsInput,
-  ShopListResponse,
 } from '@modules/shop/interfaces/dtos/shop.dto';
 
 export interface IGetShopByIdUseCase {
@@ -14,5 +13,5 @@ export interface IGetShopsByOwnerUseCase {
 }
 
 export interface IGetShopsUseCase {
-  execute(input: GetShopsInput): Promise<ShopListResponse>;
+  execute(input: GetShopsInput): Promise<ShopResponse[]>;
 }

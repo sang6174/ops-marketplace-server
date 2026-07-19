@@ -12,7 +12,7 @@ export class CreateUserAddressDto {
   @IsString()
   @IsNotEmpty()
   @MaxLength(255)
-  addressLine!: string;
+  street!: string;
 
   @ApiProperty({ example: 'TP. Hồ Chí Minh' })
   @IsString()
@@ -37,7 +37,7 @@ export class UpdateUserAddressDto {
   @IsOptional()
   @IsString()
   @MaxLength(255)
-  addressLine?: string;
+  street?: string;
 
   @ApiPropertyOptional({ example: 'TP. Hồ Chí Minh' })
   @IsOptional()

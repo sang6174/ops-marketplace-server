@@ -52,22 +52,19 @@ export abstract class BasePaymentState implements PaymentState {
   markAsPaid(payment: Payment, paidAt: Date): void {
     if (!this.canMarkAsPaid())
       throw new Error(`Cannot mark as paid from state ${this.status}`);
-    payment.setState(new SucceededState());
-    payment.applyMarkAsPaid(paidAt);
+    payment.markAsPaid(paidAt);
   }
 
   markAsFailed(payment: Payment, errorMessage: ErrorMessage): void {
     if (!this.canMarkAsFailed())
       throw new Error(`Cannot mark as failed from state ${this.status}`);
-    payment.setState(new FailedState());
-    payment.applyMarkAsFailed(errorMessage);
+    payment.markAsFailed(errorMessage.value);
   }
 
   refund(payment: Payment, refundedAt: Date, reason?: RefundReason): void {
     if (!this.canRefund())
       throw new Error(`Cannot refund from state ${this.status}`);
-    payment.setState(new RefundedState());
-    payment.applyRefund(refundedAt, reason);
+    payment.refund(refundedAt, reason?.value);
   }
 }
 

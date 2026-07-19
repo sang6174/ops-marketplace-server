@@ -73,7 +73,7 @@ export class PaymentsService {
     const orders = await this.prisma.order.findMany({
       where: {
         id: { in: dto.orderIds },
-        userId,
+        buyerId: userId,
         deletedAt: null,
       },
     });
@@ -258,7 +258,7 @@ export class PaymentsService {
 
     return this.applyPaymentStatus(
       payment.id,
-      PaymentStatus.SUCCESS,
+      PaymentStatus.SUCCEEDED,
       providerRef,
     );
   }
@@ -490,7 +490,7 @@ export class PaymentsService {
         ].includes(status ?? ''),
       )
     ) {
-      return PaymentStatus.SUCCESS;
+      return PaymentStatus.SUCCEEDED;
     }
 
     if (
@@ -530,7 +530,7 @@ export class PaymentsService {
       throw new BadRequestException('Only COD payment can be confirmed here');
     }
 
-    return this.applyPaymentStatus(payment.id, PaymentStatus.SUCCESS);
+    return this.applyPaymentStatus(payment.id, PaymentStatus.SUCCEEDED);
   }
 
   async collectCodPayment(user: AuthUser, paymentId: string) {
@@ -539,20 +539,21 @@ export class PaymentsService {
       throw new BadRequestException('Only COD payment can be collected here');
     }
 
-    return this.applyPaymentStatus(payment.id, PaymentStatus.SUCCESS);
+    return this.applyPaymentStatus(payment.id, PaymentStatus.SUCCEEDED);
   }
 
   async requestRefund(userId: string, dto: RequestRefundDto) {
     const order = await this.prisma.order.findFirst({
       where: {
         id: dto.orderId,
-        userId,
+        buyerId: userId,
         deletedAt: null,
       },
+      include: { items: { take: 1 } },
     });
 
     if (!order) throw new ResourceNotFoundException('Order', dto.orderId);
-    if (order.paymentStatus !== PaymentStatus.SUCCESS) {
+    if (order.paymentStatus !== PaymentStatus.SUCCEEDED) {
       throw new BadRequestException('Only paid orders can be refunded');
     }
 
@@ -583,7 +584,7 @@ export class PaymentsService {
       data: {
         userId,
         orderId: order.id,
-        shopId: order.shopId,
+        shopId: order.items[0]?.shopId ?? '',
         amount,
         reason: dto.reason,
         status: RefundStatus.REQUESTED,
@@ -670,7 +671,7 @@ export class PaymentsService {
 
       await this.recordRefundLedgerEntries(
         tx,
-        refund.order.userId,
+        refund.order.buyerId,
         refund.shopId,
         refund.amount,
         refund.id,
@@ -710,7 +711,7 @@ export class PaymentsService {
   ) {
     const payment = await this.prisma.payment.findFirst({
       where: { id: paymentId, deletedAt: null },
-      include: { items: { include: { order: true } } },
+      include: { items: { include: { order: { include: { items: true } } } } },
     });
 
     if (!payment) throw new ResourceNotFoundException('Payment', paymentId);
@@ -739,11 +740,11 @@ export class PaymentsService {
         data: { paymentStatus: status },
       });
 
-      if (status === PaymentStatus.SUCCESS) {
+      if (status === PaymentStatus.SUCCEEDED) {
         for (const item of payment.items) {
           await this.creditSellerBalance(
             tx,
-            item.order.shopId,
+            item.order.items[0]?.shopId ?? '',
             item.amount,
             payment.id,
           );
@@ -790,7 +791,7 @@ export class PaymentsService {
       });
 
       const entryCreated = await this.createLedgerEntryIfMissing(tx, {
-        accountId: account.id,
+        account: { connect: { id: account.id } },
         amount: amount as string,
         type: LedgerEntryType.CREDIT,
         reference: paymentId,
@@ -851,7 +852,7 @@ export class PaymentsService {
       });
 
       const entryCreated = await this.createLedgerEntryIfMissing(tx, {
-        accountId: account.id,
+        account: { connect: { id: account.id } },
         amount: amount as string,
         type: LedgerEntryType.DEBIT,
         reference: refundId,
@@ -883,7 +884,7 @@ export class PaymentsService {
     });
 
     const entryCreated = await this.createLedgerEntryIfMissing(tx, {
-      accountId: buyerAccount.id,
+      account: { connect: { id: buyerAccount.id } },
       amount: amount as string,
       type: LedgerEntryType.CREDIT,
       reference: refundId,
@@ -966,7 +967,7 @@ export class PaymentsService {
   private async getCollectableCodPayment(user: AuthUser, paymentId: string) {
     const payment = await this.prisma.payment.findFirst({
       where: { id: paymentId, deletedAt: null },
-      include: { items: { include: { order: true } } },
+      include: { items: { include: { order: { include: { items: true } } } } },
     });
 
     if (!payment) throw new ResourceNotFoundException('Payment', paymentId);
@@ -983,7 +984,7 @@ export class PaymentsService {
         deletedAt: null,
         items: { some: { orderId } },
       },
-      include: { items: { include: { order: true } } },
+      include: { items: { include: { order: { include: { items: true } } } } },
       orderBy: { createdAt: 'desc' },
     });
 
@@ -1008,7 +1009,7 @@ export class PaymentsService {
     if (!shop) throw new ResourceNotFoundException('Shop');
 
     const ownsEveryOrder = payment.items.every(
-      (item) => item.order.shopId === shop.id,
+      (item) => item.order.items[0]?.shopId === shop.id,
     );
     if (!ownsEveryOrder) {
       throw new BadRequestException('Payment does not belong to your shop');

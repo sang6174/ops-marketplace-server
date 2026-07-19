@@ -1,5 +1,5 @@
 // domain/repository-contracts/payment-repository.interface.ts
-import { Payment } from '@domain/entities/payment';
+import { Payment } from '@domain/entities/orders/Payment';
 import { PaymentStatus } from '@domain/entities/enums.enum';
 import { IBaseRepository } from './base-repository.interface';
 export interface IPaymentRepository extends IBaseRepository<Payment> {

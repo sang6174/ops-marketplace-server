@@ -1,5 +1,5 @@
-import { Shipment } from '../entities/shipment';
-import { Address } from '../value-objects/address';
+import { Shipment } from '../entities/orders/Shipment';
+import { Address } from '../value-objects/Address';
 
 export interface IShipmentDomainService {
   canAssignShipper(

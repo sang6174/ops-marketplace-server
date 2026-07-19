@@ -4,17 +4,18 @@ import { PrismaService } from '@infrastructure/prisma/prisma.service';
 import { ResourceNotFoundException } from '@common/exceptions';
 import { paginate } from '@common/dtos/pagination.dto';
 import { toPrismaPage } from '@common/utils';
-import { ProductStatus } from '@infrastructure/generated/prisma/enums';
 import {
-  AddVariantDto,
+  ProductCategory,
+  ProductStatus,
+  ProductUnit,
+} from '@infrastructure/generated/prisma/enums';
+import {
   BulkUpdateInventoryDto,
   CreateProductDto,
   CreateProductImageDto,
-  CreateVariantImageDto,
   QueryProductsDto,
   SellerUpdateProductDto,
   SetInventoryDto,
-  UpdateVariantDto,
 } from './dtos/product.dto';
 
 @Injectable()
@@ -78,16 +79,6 @@ export class ProductsService {
     return product;
   }
 
-  async getVariants(productId: string) {
-    await this.getProduct(productId);
-
-    return this.prisma.productVariant.findMany({
-      where: { productId, deletedAt: null, isActive: true },
-      include: this.variantInclude(),
-      orderBy: [{ isDefault: 'desc' }, { createdAt: 'asc' }],
-    });
-  }
-
   async getReviews(productId: string, dto: QueryProductsDto) {
     await this.getProduct(productId);
 
@@ -141,9 +132,13 @@ export class ProductsService {
       const product = await tx.product.create({
         data: {
           shopId,
+          sellerId: userId,
           name: dto.name,
           slug: dto.slug,
           description: dto.description,
+          category: ProductCategory.OTHER,
+          unit: ProductUnit.PIECE,
+          retailPrice: 0,
           status: ProductStatus.DRAFT,
           isFeatured: false,
           categories: dto.categoryIds?.length
@@ -153,12 +148,6 @@ export class ProductsService {
             : undefined,
         },
       });
-
-      if (dto.variants?.length) {
-        for (const variantDto of dto.variants) {
-          await this.createVariantWithTx(tx, shopId, product.id, variantDto);
-        }
-      }
 
       return tx.product.findUnique({
         where: { id: product.id },
@@ -206,11 +195,11 @@ export class ProductsService {
   }
 
   async unpublishProduct(userId: string, id: string) {
-    return this.updateProductStatus(userId, id, ProductStatus.INACTIVE);
+    return this.updateProductStatus(userId, id, ProductStatus.DISCONTINUED);
   }
 
   async archiveProduct(userId: string, id: string) {
-    return this.updateProductStatus(userId, id, ProductStatus.ARCHIVED);
+    return this.updateProductStatus(userId, id, ProductStatus.DISCONTINUED);
   }
 
   async duplicateProduct(userId: string, id: string) {
@@ -221,9 +210,13 @@ export class ProductsService {
       const duplicated = await tx.product.create({
         data: {
           shopId,
+          sellerId: userId,
           name: `${product.name} Copy`,
           slug: `${product.slug}-copy-${Date.now()}`,
           description: product.description,
+          category: product.category,
+          unit: product.unit,
+          retailPrice: product.retailPrice,
           status: ProductStatus.DRAFT,
           isFeatured: false,
           categories: {
@@ -241,32 +234,6 @@ export class ProductsService {
         },
       });
 
-      for (const variant of product.variants) {
-        const createdVariant = await tx.productVariant.create({
-          data: {
-            shopId,
-            productId: duplicated.id,
-            sku: `${variant.sku}-copy-${Date.now()}`,
-            name: variant.name,
-            price: variant.price,
-            isDefault: variant.isDefault,
-            isActive: false,
-            inventory: variant.inventory
-              ? { create: { stock: variant.inventory.stock } }
-              : undefined,
-          },
-        });
-
-        if (variant.attributes.length) {
-          await tx.variantAttribute.createMany({
-            data: variant.attributes.map((item) => ({
-              variantId: createdVariant.id,
-              attributeValueId: item.attributeValueId,
-            })),
-          });
-        }
-      }
-
       return tx.product.findUnique({
         where: { id: duplicated.id },
         include: this.productDetailInclude(),
@@ -274,124 +241,11 @@ export class ProductsService {
     });
   }
 
-  async getSellerVariants(userId: string, productId: string) {
-    const shopId = await this.getShopId(userId);
-    await this.checkProductOwnership(productId, shopId);
-
-    return this.prisma.productVariant.findMany({
-      where: { productId, shopId, deletedAt: null },
-      include: this.variantInclude(),
-      orderBy: [{ isDefault: 'desc' }, { createdAt: 'asc' }],
-    });
-  }
-
-  async addVariant(userId: string, productId: string, dto: AddVariantDto) {
-    const shopId = await this.getShopId(userId);
-    await this.checkProductOwnership(productId, shopId);
-
-    return this.prisma.$transaction((tx) =>
-      this.createVariantWithTx(tx, shopId, productId, dto),
-    );
-  }
-
-  async createVariant(userId: string, dto: AddVariantDto) {
-    if (!dto.productId) {
-      throw new BadRequestException('productId is required');
-    }
-
-    return this.addVariant(userId, dto.productId, dto);
-  }
-
-  async updateVariant(
-    userId: string,
-    productId: string,
-    variantId: string,
-    dto: UpdateVariantDto,
-  ) {
-    const shopId = await this.getShopId(userId);
-    await this.checkProductOwnership(productId, shopId);
-    const variant = await this.checkVariantOwnership(
-      variantId,
-      shopId,
-      productId,
-    );
-
-    return this.updateVariantData(variant, dto);
-  }
-
-  async updateVariantById(
-    userId: string,
-    variantId: string,
-    dto: UpdateVariantDto,
-  ) {
-    const shopId = await this.getShopId(userId);
-    const variant = await this.checkVariantOwnership(variantId, shopId);
-
-    return this.updateVariantData(variant, dto);
-  }
-
-  async deleteVariant(userId: string, productId: string, variantId: string) {
-    const shopId = await this.getShopId(userId);
-    await this.checkVariantOwnership(variantId, shopId, productId);
-
-    return this.deleteVariantById(userId, variantId);
-  }
-
-  async deleteVariantById(userId: string, variantId: string) {
-    const shopId = await this.getShopId(userId);
-    await this.checkVariantOwnership(variantId, shopId);
-
-    await this.prisma.productVariant.update({
-      where: { id: variantId },
-      data: { deletedAt: new Date(), isActive: false },
-    });
-
-    return { message: 'Variant deleted' };
-  }
-
-  async setDefaultVariant(userId: string, variantId: string) {
-    const shopId = await this.getShopId(userId);
-    const variant = await this.checkVariantOwnership(variantId, shopId);
-
-    return this.prisma.$transaction(async (tx) => {
-      await tx.productVariant.updateMany({
-        where: { productId: variant.productId, shopId },
-        data: { isDefault: false },
-      });
-
-      return tx.productVariant.update({
-        where: { id: variantId },
-        data: { isDefault: true },
-        include: this.variantInclude(),
-      });
-    });
-  }
-
-  async adjustInventory(
-    userId: string,
-    productId: string,
-    variantId: string,
-    dto: { quantity: number },
-  ) {
-    const shopId = await this.getShopId(userId);
-    await this.checkVariantOwnership(variantId, shopId, productId);
-
-    return this.prisma.inventory.upsert({
-      where: { variantId },
-      create: { variantId, stock: dto.quantity },
-      update: { stock: { increment: dto.quantity }, version: { increment: 1 } },
-    });
-  }
-
   async listInventory(userId: string, dto: QueryProductsDto) {
     const shopId = await this.getShopId(userId);
     const { page = 1, limit = 20 } = dto;
     const where = {
-      variant: {
-        shopId,
-        deletedAt: null,
-        product: { deletedAt: null },
-      },
+      product: { shopId, deletedAt: null },
     };
 
     const [items, total] = await this.prisma.$transaction([
@@ -399,11 +253,7 @@ export class ProductsService {
         where,
         ...toPrismaPage(page, limit),
         include: {
-          variant: {
-            include: {
-              product: true,
-            },
-          },
+          product: { select: { id: true, name: true, slug: true } },
         },
         orderBy: { updatedAt: 'desc' },
       }),
@@ -415,15 +265,15 @@ export class ProductsService {
 
   async updateInventory(
     userId: string,
-    variantId: string,
+    productId: string,
     dto: SetInventoryDto,
   ) {
     const shopId = await this.getShopId(userId);
-    await this.checkVariantOwnership(variantId, shopId);
+    await this.checkProductOwnership(productId, shopId);
 
     return this.prisma.inventory.upsert({
-      where: { variantId },
-      create: { variantId, stock: dto.stock },
+      where: { productId },
+      create: { productId, stock: dto.stock },
       update: { stock: dto.stock, version: { increment: 1 } },
     });
   }
@@ -435,17 +285,17 @@ export class ProductsService {
       const updated = [];
 
       for (const item of dto.items) {
-        const variant = await tx.productVariant.findFirst({
-          where: { id: item.variantId, shopId, deletedAt: null },
+        const product = await tx.product.findFirst({
+          where: { id: item.productId, shopId, deletedAt: null },
         });
-        if (!variant) {
-          throw new ResourceNotFoundException('Variant', item.variantId);
+        if (!product) {
+          throw new ResourceNotFoundException('Product', item.productId);
         }
 
         updated.push(
           await tx.inventory.upsert({
-            where: { variantId: item.variantId },
-            create: { variantId: item.variantId, stock: item.stock },
+            where: { productId: item.productId },
+            create: { productId: item.productId, stock: item.stock },
             update: { stock: item.stock, version: { increment: 1 } },
           }),
         );
@@ -504,22 +354,6 @@ export class ProductsService {
     });
   }
 
-  async addVariantImage(
-    userId: string,
-    variantId: string,
-    dto: CreateVariantImageDto,
-  ) {
-    const shopId = await this.getShopId(userId);
-    await this.checkVariantOwnership(variantId, shopId);
-
-    return this.prisma.variantImage.create({
-      data: {
-        variantId,
-        url: dto.url,
-      },
-    });
-  }
-
   private async updateProductStatus(
     userId: string,
     id: string,
@@ -532,130 +366,6 @@ export class ProductsService {
       where: { id },
       data: { status },
       include: this.productDetailInclude(),
-    });
-  }
-
-  private async updateVariantData(
-    variant: { id: string; productId: string; shopId: string },
-    dto: UpdateVariantDto,
-  ) {
-    return this.prisma.$transaction(async (tx) => {
-      if (dto.isDefault) {
-        await tx.productVariant.updateMany({
-          where: {
-            productId: variant.productId,
-            shopId: variant.shopId,
-            NOT: { id: variant.id },
-          },
-          data: { isDefault: false },
-        });
-      }
-
-      const updated = await tx.productVariant.update({
-        where: { id: variant.id },
-        data: {
-          sku: dto.sku,
-          name: dto.name,
-          price: dto.price,
-          isDefault: dto.isDefault,
-          isActive: dto.isActive,
-          inventory: dto.inventory
-            ? {
-                upsert: {
-                  create: { stock: dto.inventory.stock },
-                  update: { stock: dto.inventory.stock },
-                },
-              }
-            : undefined,
-        },
-      });
-
-      if (dto.attributes) {
-        await tx.variantAttribute.deleteMany({
-          where: { variantId: variant.id },
-        });
-
-        if (dto.attributes.length) {
-          const attributeValueIds = dto.attributes.map(
-            (item) => item.attributeValueId,
-          );
-          const existingValues = await tx.attributeValue.findMany({
-            where: { id: { in: attributeValueIds } },
-            select: { id: true },
-          });
-          if (existingValues.length !== attributeValueIds.length) {
-            throw new BadRequestException('Invalid attributeValueId');
-          }
-
-          await tx.variantAttribute.createMany({
-            data: attributeValueIds.map((attributeValueId) => ({
-              variantId: variant.id,
-              attributeValueId,
-            })),
-            skipDuplicates: true,
-          });
-        }
-      }
-
-      return tx.productVariant.findUnique({
-        where: { id: updated.id },
-        include: this.variantInclude(),
-      });
-    });
-  }
-
-  private async createVariantWithTx(
-    tx: any,
-    shopId: string,
-    productId: string,
-    dto: AddVariantDto,
-  ) {
-    const variant = await tx.productVariant.create({
-      data: {
-        shopId,
-        productId,
-        sku: dto.sku,
-        name: dto.name,
-        price: dto.price,
-        isDefault: dto.isDefault ?? false,
-        isActive: dto.isActive ?? true,
-        inventory: dto.inventory
-          ? { create: { stock: dto.inventory.stock } }
-          : undefined,
-      },
-    });
-
-    if (dto.isDefault) {
-      await tx.productVariant.updateMany({
-        where: { productId, shopId, NOT: { id: variant.id } },
-        data: { isDefault: false },
-      });
-    }
-
-    if (dto.attributes?.length) {
-      const attributeValueIds = dto.attributes.map(
-        (item) => item.attributeValueId,
-      );
-      const existingValues = await tx.attributeValue.findMany({
-        where: { id: { in: attributeValueIds } },
-        select: { id: true },
-      });
-      if (existingValues.length !== attributeValueIds.length) {
-        throw new BadRequestException('Invalid attributeValueId');
-      }
-
-      await tx.variantAttribute.createMany({
-        data: attributeValueIds.map((attributeValueId) => ({
-          variantId: variant.id,
-          attributeValueId,
-        })),
-        skipDuplicates: true,
-      });
-    }
-
-    return tx.productVariant.findUnique({
-      where: { id: variant.id },
-      include: this.variantInclude(),
     });
   }
 
@@ -675,13 +385,6 @@ export class ProductsService {
       include: {
         categories: true,
         images: true,
-        variants: {
-          where: { deletedAt: null },
-          include: {
-            inventory: true,
-            attributes: true,
-          },
-        },
       },
     });
 
@@ -690,25 +393,6 @@ export class ProductsService {
     }
 
     return product;
-  }
-
-  private async checkVariantOwnership(
-    variantId: string,
-    shopId: string,
-    productId?: string,
-  ) {
-    const variant = await this.prisma.productVariant.findFirst({
-      where: {
-        id: variantId,
-        shopId,
-        deletedAt: null,
-        ...(productId && { productId }),
-      },
-      include: this.variantInclude(),
-    });
-
-    if (!variant) throw new ResourceNotFoundException('Variant', variantId);
-    return variant;
   }
 
   private async checkProductImageOwnership(userId: string, imageId: string) {
@@ -777,24 +461,6 @@ export class ProductsService {
       images: true,
       stats: true,
       categories: { include: { category: true } },
-      variants: {
-        where: { deletedAt: null, isActive: true },
-        include: this.variantInclude(),
-      },
-    };
-  }
-
-  private variantInclude() {
-    return {
-      inventory: true,
-      images: true,
-      attributes: {
-        include: {
-          attributeValue: {
-            include: { attribute: true },
-          },
-        },
-      },
     };
   }
 }

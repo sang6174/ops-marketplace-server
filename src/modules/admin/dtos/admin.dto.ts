@@ -10,13 +10,11 @@ import {
   IsInt,
   Min,
   Max,
-  ValidateNested,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   AccountStatus,
-  AttributeType,
   LedgerEntryCategory,
   LedgerEntryType,
   OrderStatus,
@@ -144,35 +142,6 @@ export class ReorderCategoriesDto {
   @IsArray()
   @IsString({ each: true })
   orderedIds!: string[];
-}
-
-export class AssignCategoryAttributeItemDto {
-  @ApiProperty()
-  @IsString()
-  @IsNotEmpty()
-  attributeId!: string;
-
-  @ApiProperty({ enum: AttributeType })
-  @IsEnum(AttributeType)
-  type!: AttributeType;
-
-  @ApiPropertyOptional({ example: false })
-  @IsOptional()
-  @IsBoolean()
-  isRequired?: boolean;
-
-  @ApiPropertyOptional({ example: true })
-  @IsOptional()
-  @IsBoolean()
-  isFilterable?: boolean;
-}
-
-export class AssignCategoryAttributesDto {
-  @ApiProperty({ type: [AssignCategoryAttributeItemDto] })
-  @IsArray()
-  @ValidateNested({ each: true })
-  @Type(() => AssignCategoryAttributeItemDto)
-  attributes!: AssignCategoryAttributeItemDto[];
 }
 
 export class QueryAdminOrdersDto {

@@ -32,9 +32,8 @@ export class OrdersService {
       include: {
         items: {
           include: {
-            variant: {
+            product: {
               include: {
-                product: true,
                 inventory: true,
               },
             },
@@ -59,7 +58,7 @@ export class OrdersService {
     const grouped = new Map<string, typeof cart.items>();
     for (const item of cart.items) {
       this.assertCartItemCanCheckout(item);
-      const shopId = item.variant.product.shopId;
+      const shopId = item.product.shopId;
       if (!grouped.has(shopId)) {
         grouped.set(shopId, []);
       }
@@ -80,22 +79,31 @@ export class OrdersService {
         // Create order
         const order = await tx.order.create({
           data: {
-            userId,
-            shopId,
-            addressId: dto.addressId,
+            buyerId: userId,
+            sellerId: items[0].product.sellerId,
+            shippingAddress: {
+              id: address.id,
+              country: address.country,
+              city: address.city,
+              district: address.district,
+              ward: address.ward,
+              street: address.street,
+              detail: address.detail,
+              postalCode: address.postalCode,
+            },
             status: OrderStatus.PENDING,
-            totalPrice: totalPrice.toString(),
+            totalPrice,
             paymentStatus: PaymentStatus.PENDING,
+            paymentMethod: dto.paymentMethod ?? PaymentMethod.BANK_TRANSFER,
 
             items: {
               create: items.map((item) => ({
                 shopId,
-                variantId: item.variantId,
+                productId: item.productId,
                 price: item.price,
                 quantity: item.quantity,
-                productName: item.variant.product.name,
-                variantName: item.variant.name,
-                sku: item.variant.sku,
+                productName: item.product.name,
+                productImage: null,
               })),
             },
           },
@@ -105,7 +113,7 @@ export class OrdersService {
         // Deduct inventory
         for (const item of items) {
           await tx.inventory.update({
-            where: { variantId: item.variantId },
+            where: { productId: item.productId },
             data: {
               reserved: { increment: item.quantity },
               version: { increment: 1 },
@@ -123,7 +131,7 @@ export class OrdersService {
         data: { status: CartStatus.COMPLETED },
       });
 
-      const paymentMethod = dto.paymentMethod ?? PaymentMethod.COD;
+      const paymentMethod = dto.paymentMethod ?? PaymentMethod.BANK_TRANSFER;
       const paymentAmount = createdOrders.reduce(
         (sum, order) => sum + Number(order.totalPrice),
         0,
@@ -155,11 +163,8 @@ export class OrdersService {
 
   async getOrder(userId: string, orderId: string) {
     const order = await this.prisma.order.findFirst({
-      where: { id: orderId, userId, deletedAt: null },
-      include: {
-        items: true,
-        address: true,
-      },
+      where: { id: orderId, buyerId: userId, deletedAt: null },
+      include: { items: true },
     });
 
     if (!order) {
@@ -181,11 +186,8 @@ export class OrdersService {
     }
 
     const order = await this.prisma.order.findFirst({
-      where: { id: orderId, shopId: shop.id, deletedAt: null },
-      include: {
-        items: true,
-        address: true,
-      },
+      where: { id: orderId, items: { some: { shopId: shop.id } }, deletedAt: null },
+      include: { items: true },
     });
 
     if (!order) {
@@ -199,7 +201,7 @@ export class OrdersService {
     const { page = 1, limit = 20, status, paymentStatus } = dto;
 
     const where: any = {
-      userId,
+      buyerId: userId,
       deletedAt: null,
       ...(status && { status }),
       ...(paymentStatus && { paymentStatus }),
@@ -210,7 +212,7 @@ export class OrdersService {
         where,
         ...toPrismaPage(page, limit),
         orderBy: { createdAt: 'desc' },
-        include: { items: true, address: true },
+        include: { items: true },
       }),
       this.prisma.order.count({ where }),
     ]);
@@ -231,7 +233,7 @@ export class OrdersService {
     const { page = 1, limit = 20, status, paymentStatus } = dto;
 
     const where: any = {
-      shopId: shop.id,
+      items: { some: { shopId: shop.id } },
       deletedAt: null,
       ...(status && { status }),
       ...(paymentStatus && { paymentStatus }),
@@ -242,7 +244,7 @@ export class OrdersService {
         where,
         ...toPrismaPage(page, limit),
         orderBy: { createdAt: 'desc' },
-        include: { items: true, address: true },
+        include: { items: true },
       }),
       this.prisma.order.count({ where }),
     ]);
@@ -265,7 +267,7 @@ export class OrdersService {
     }
 
     const order = await this.prisma.order.findFirst({
-      where: { id: orderId, shopId: shop.id, deletedAt: null },
+      where: { id: orderId, items: { some: { shopId: shop.id } }, deletedAt: null },
     });
 
     if (!order) {
@@ -277,7 +279,7 @@ export class OrdersService {
     if (dto.status === OrderStatus.CONFIRMED) {
       updateData.confirmedAt = new Date();
     }
-    if (dto.status === OrderStatus.SHIPPING) {
+    if (dto.status === OrderStatus.SHIPPED) {
       updateData.shippedAt = new Date();
     }
     if (dto.status === OrderStatus.DELIVERED) {
@@ -306,7 +308,7 @@ export class OrdersService {
     }
 
     const order = await this.prisma.order.findFirst({
-      where: { id: orderId, shopId: shop.id, deletedAt: null },
+      where: { id: orderId, items: { some: { shopId: shop.id } }, deletedAt: null },
     });
 
     if (!order) {
@@ -337,7 +339,7 @@ export class OrdersService {
 
   async cancelOrder(userId: string, orderId: string) {
     const order = await this.prisma.order.findFirst({
-      where: { id: orderId, userId, deletedAt: null },
+      where: { id: orderId, buyerId: userId, deletedAt: null },
     });
 
     if (!order) {
@@ -358,7 +360,7 @@ export class OrdersService {
 
       for (const item of orderItems) {
         await tx.inventory.update({
-          where: { variantId: item.variantId },
+          where: { productId: item.productId },
           data: {
             reserved: { decrement: item.quantity },
             version: { increment: 1 },
@@ -378,33 +380,30 @@ export class OrdersService {
 
   private assertCartItemCanCheckout(item: {
     quantity: number;
-    variantId: string;
-    variant: {
+    productId: string;
+    product: {
       id: string;
       deletedAt: Date | null;
-      isActive: boolean;
+      status: ProductStatus;
       inventory: { stock: number; reserved: number } | null;
-      product: { deletedAt: Date | null; status: ProductStatus };
     };
   }) {
     const availableStock =
-      (item.variant.inventory?.stock ?? 0) -
-      (item.variant.inventory?.reserved ?? 0);
+      (item.product.inventory?.stock ?? 0) -
+      (item.product.inventory?.reserved ?? 0);
 
     if (
-      item.variant.deletedAt ||
-      !item.variant.isActive ||
-      item.variant.product.deletedAt ||
-      item.variant.product.status !== ProductStatus.ACTIVE
+      item.product.deletedAt ||
+      item.product.status !== ProductStatus.ACTIVE
     ) {
       throw new BadRequestException(
-        `Variant ${item.variantId} is no longer available`,
+        `Product ${item.productId} is no longer available`,
       );
     }
 
     if (availableStock < item.quantity) {
       throw new BadRequestException(
-        `Not enough stock for variant ${item.variantId}`,
+        `Not enough stock for product ${item.productId}`,
       );
     }
   }

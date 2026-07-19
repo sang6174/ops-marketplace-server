@@ -4,7 +4,7 @@ import {
   OrderType,
   PaymentStatus,
 } from '@domain/entities/enums.enum';
-import { Address } from '@/domain/value-objects/address';
+import { Address } from '@domain/value-objects/Address';
 
 export interface CreateOrderInput {
   buyerId: string;

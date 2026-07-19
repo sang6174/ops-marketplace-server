@@ -1,6 +1,6 @@
 // domain/service-contract/payment-domain.service.ts
 
-import { Payment } from '@domain/entities/payment';
+import { Payment } from '@domain/entities/orders/Payment';
 import { PaymentMethod, PaymentStatus } from '@domain/entities/enums.enum';
 
 export interface PaymentGatewayValidationResult {

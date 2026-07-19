@@ -16,7 +16,6 @@ import { AuthUser } from '@modules/auth/dtos/auth.dto';
 import { JwtAuthGuard } from '../auth/guards';
 import { AdminService } from './admin.service';
 import {
-  AssignCategoryAttributesDto,
   CreateAdminCategoryDto,
   FeatureProductDto,
   QueryAdminLedgerEntriesDto,
@@ -115,15 +114,6 @@ export class AdminController {
   @ApiOperation({ summary: '[ADMIN] Delete category' })
   deleteCategory(@Param('id') categoryId: string) {
     return this.adminService.deleteCategory(categoryId);
-  }
-
-  @Post('categories/:id/attributes')
-  @ApiOperation({ summary: '[ADMIN] Assign attributes to category' })
-  assignCategoryAttributes(
-    @Param('id') categoryId: string,
-    @Body() dto: AssignCategoryAttributesDto,
-  ) {
-    return this.adminService.assignCategoryAttributes(categoryId, dto);
   }
 
   @Get('orders')

@@ -1,4 +1,4 @@
-import { Notification } from '@/domain/entities/notification';
+import { Notification } from '@/domain/entities/notifies/Notification';
 import { SendNotificationInput } from '../../interfaces/dtos/notification.dto';
 
 export interface ISendNotificationUseCase {

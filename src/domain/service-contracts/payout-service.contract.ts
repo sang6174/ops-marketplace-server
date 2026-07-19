@@ -1,5 +1,5 @@
-import { Payout } from '@domain/entities/payout';
-import { Money } from '@/domain/value-objects/money';
+import { Payout } from '@domain/entities/payouts/Payout';
+import { Money } from '@/domain/value-objects/Money';
 
 export interface PayoutValidationResult {
   valid: boolean;

@@ -6,8 +6,8 @@ export class PayoutMethod {
   static bankTransfer(): PayoutMethod {
     return new PayoutMethod(PayoutMethodEnum.BANK_TRANSFER);
   }
-  static paypal(): PayoutMethod {
-    return new PayoutMethod(PayoutMethodEnum.PAYPAL);
+  static stripe(): PayoutMethod {
+    return new PayoutMethod(PayoutMethodEnum.STRIPE);
   }
   static momo(): PayoutMethod {
     return new PayoutMethod(PayoutMethodEnum.MOMO);
@@ -21,7 +21,7 @@ export class PayoutMethod {
       case 'BANK_TRANSFER':
         return PayoutMethod.bankTransfer();
       case 'STRIPE':
-        return PayoutMethod.paypal();
+        return PayoutMethod.stripe();
       case 'MOMO':
         return PayoutMethod.momo();
       case 'CASH':

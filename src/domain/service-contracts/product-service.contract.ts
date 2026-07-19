@@ -1,4 +1,4 @@
-import { Product } from '../entities/product';
+import { Product } from '../entities/products/Product';
 
 export interface ProductValidationResult {
   valid: boolean;

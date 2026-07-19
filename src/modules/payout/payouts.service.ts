@@ -4,6 +4,7 @@ import {
   LedgerAccountType,
   LedgerEntryCategory,
   LedgerEntryType,
+  PayoutMethod,
   PayoutStatus,
 } from '@infrastructure/generated/prisma/enums';
 import { Prisma } from '@infrastructure/generated/prisma/client';
@@ -123,7 +124,7 @@ export class PayoutsService {
           userId: sellerId,
           amount: dto.amount,
           status: PayoutStatus.PENDING,
-          method: bankAccount.bankName,
+          method: PayoutMethod.BANK_TRANSFER,
           reference: bankAccount.accountNo,
         },
       });

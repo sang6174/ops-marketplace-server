@@ -1,5 +1,5 @@
 // domain/repository-contracts/category-repository.interface.ts
-import { Category } from '@domain/entities/category';
+import { Category } from '@domain/entities/products/Category';
 import { IBaseRepository } from './base-repository.interface';
 
 export interface ICategoryRepository extends IBaseRepository<Category> {

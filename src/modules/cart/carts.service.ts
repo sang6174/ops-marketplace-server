@@ -1,7 +1,9 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
+import { Prisma } from '@infrastructure/generated/prisma/client';
 import {
   CartStatus,
   OrderStatus,
+  OrderType,
   PaymentMethod,
   PaymentStatus,
   ProductStatus,
@@ -25,37 +27,37 @@ export class CartsService {
   }
 
   async addItem(userId: string, dto: AddCartItemDto) {
-    const variant = await this.getPurchasableVariant(dto.variantId);
-    await this.assertAvailableStock(dto.variantId, dto.quantity);
+    const product = await this.getProductById(dto.productId);
+    await this.assertAvailableStock(dto.productId, dto.quantity);
     const cart = await this.findOrCreateCart(userId);
 
     const existingItem = await this.prisma.cartItem.findUnique({
       where: {
-        cartId_variantId: {
+        cartId_productId: {
           cartId: cart.id,
-          variantId: dto.variantId,
+          productId: dto.productId,
         },
       },
     });
 
     if (existingItem) {
       const nextQuantity = existingItem.quantity + dto.quantity;
-      await this.assertAvailableStock(dto.variantId, nextQuantity);
+      await this.assertAvailableStock(dto.productId, nextQuantity);
 
       await this.prisma.cartItem.update({
         where: { id: existingItem.id },
         data: {
           quantity: nextQuantity,
-          price: variant.price,
+          price: product.retailPrice,
         },
       });
     } else {
       await this.prisma.cartItem.create({
         data: {
           cartId: cart.id,
-          variantId: dto.variantId,
+          productId: dto.productId,
           quantity: dto.quantity,
-          price: variant.price,
+          price: product.retailPrice,
         },
       });
     }
@@ -72,7 +74,7 @@ export class CartsService {
       return this.getCartById(cart.id);
     }
 
-    await this.assertAvailableStock(item.variantId, dto.quantity);
+    await this.assertAvailableStock(item.productId, dto.quantity);
     await this.prisma.cartItem.update({
       where: { id: itemId },
       data: { quantity: dto.quantity },
@@ -117,24 +119,13 @@ export class CartsService {
       include: {
         items: {
           include: {
-            variant: {
+            product: {
               include: {
                 inventory: true,
-                images: true,
-                product: {
-                  include: {
-                    images: {
-                      orderBy: [{ isPrimary: 'desc' }, { sortOrder: 'asc' }],
-                    },
-                  },
+                images: {
+                  orderBy: [{ isPrimary: 'desc' }, { sortOrder: 'asc' }],
                 },
-                attributes: {
-                  include: {
-                    attributeValue: {
-                      include: { attribute: true },
-                    },
-                  },
-                },
+                shop: { select: { id: true, name: true } },
               },
             },
           },
@@ -146,12 +137,29 @@ export class CartsService {
       throw new BadRequestException('Cart is empty');
     }
 
-    const address = await this.prisma.address.findFirst({
-      where: { id: dto.addressId, userId, deletedAt: null },
-    });
+    // Resolve shipping address
+    let shippingAddressJson: Record<string, unknown>;
 
-    if (!address) {
-      throw new ResourceNotFoundException('Address', dto.addressId);
+    if (dto.addressId) {
+      const address = await this.prisma.address.findFirst({
+        where: { id: dto.addressId, userId, deletedAt: null },
+      });
+
+      if (!address) {
+        throw new ResourceNotFoundException('Address', dto.addressId);
+      }
+
+      shippingAddressJson = {
+        id: address.id,
+        country: address.country,
+        city: address.city,
+        district: address.district,
+        ward: address.ward,
+        street: address.street,
+        detail: address.detail,
+      };
+    } else {
+      throw new BadRequestException('Shipping address is required');
     }
 
     for (const item of cart.items) {
@@ -164,10 +172,13 @@ export class CartsService {
         data: { status: CartStatus.CHECKING_OUT },
       });
 
+      // Group items by shop
       const groupedItems = new Map<string, typeof cart.items>();
       for (const item of cart.items) {
-        const shopId = item.variant.product.shopId;
-        groupedItems.set(shopId, [...(groupedItems.get(shopId) ?? []), item]);
+        const shopId = item.product.shopId;
+        const existing = groupedItems.get(shopId) ?? [];
+        existing.push(item);
+        groupedItems.set(shopId, existing);
       }
 
       const createdOrders = [];
@@ -177,34 +188,38 @@ export class CartsService {
           0,
         );
 
+        // All items in this group share the same seller
+        const sellerId = items[0].product.sellerId;
+
         const order = await tx.order.create({
           data: {
-            userId,
-            shopId,
-            addressId: dto.addressId,
+            buyerId: userId,
+            sellerId,
+            orderType: OrderType.RETAIL,
             status: OrderStatus.PENDING,
             paymentStatus: PaymentStatus.PENDING,
             totalPrice: totalPrice.toString(),
+            shippingAddress: shippingAddressJson as Prisma.InputJsonValue,
+            paymentMethod: dto.paymentMethod ?? PaymentMethod.BANK_TRANSFER,
+            notes: dto.notes,
             items: {
               create: items.map((item) => ({
                 shopId,
-                variantId: item.variantId,
+                productId: item.productId,
                 price: item.price,
                 quantity: item.quantity,
-                productName: item.variant.product.name,
-                variantName: item.variant.name,
-                sku: item.variant.sku,
-                productImage: item.variant.product.images[0]?.url,
-                attributes: this.mapVariantAttributes(item.variant.attributes),
+                productName: item.product.name,
+                productImage: item.product.images[0]?.url,
               })),
             },
           },
-          include: { items: true, address: true },
+          include: { items: true },
         });
 
+        // Reserve inventory for each item
         for (const item of items) {
           await tx.inventory.update({
-            where: { variantId: item.variantId },
+            where: { productId: item.productId },
             data: {
               reserved: { increment: item.quantity },
               version: { increment: 1 },
@@ -215,13 +230,15 @@ export class CartsService {
         createdOrders.push(order);
       }
 
+      // Clear cart
       await tx.cartItem.deleteMany({ where: { cartId: cart.id } });
       await tx.cart.update({
         where: { id: cart.id },
         data: { status: CartStatus.COMPLETED },
       });
 
-      const paymentMethod = dto.paymentMethod ?? PaymentMethod.COD;
+      const paymentMethod =
+        dto.paymentMethod ?? PaymentMethod.BANK_TRANSFER;
       const paymentAmount = createdOrders.reduce(
         (sum, order) => sum + Number(order.totalPrice),
         0,
@@ -231,7 +248,7 @@ export class CartsService {
           userId,
           amount: paymentAmount.toString(),
           status: PaymentStatus.PENDING,
-          method: paymentMethod,
+          method: paymentMethod as PaymentMethod,
           items: {
             create: createdOrders.map((order) => ({
               orderId: order.id,
@@ -278,25 +295,13 @@ export class CartsService {
       include: {
         items: {
           include: {
-            variant: {
+            product: {
               include: {
                 inventory: true,
-                images: true,
-                product: {
-                  include: {
-                    images: {
-                      orderBy: [{ isPrimary: 'desc' }, { sortOrder: 'asc' }],
-                    },
-                    shop: { select: { id: true, name: true } },
-                  },
+                images: {
+                  orderBy: [{ isPrimary: 'desc' }, { sortOrder: 'asc' }],
                 },
-                attributes: {
-                  include: {
-                    attributeValue: {
-                      include: { attribute: true },
-                    },
-                  },
-                },
+                shop: { select: { id: true, name: true } },
               },
             },
           },
@@ -306,34 +311,30 @@ export class CartsService {
     });
   }
 
-  private async getPurchasableVariant(variantId: string) {
-    const variant = await this.prisma.productVariant.findFirst({
+  private async getProductById(productId: string) {
+    const product = await this.prisma.product.findFirst({
       where: {
-        id: variantId,
+        id: productId,
         deletedAt: null,
-        isActive: true,
-        product: {
-          deletedAt: null,
-          status: ProductStatus.ACTIVE,
-        },
+        status: ProductStatus.ACTIVE,
       },
-      include: { inventory: true, product: true },
+      include: { inventory: true },
     });
 
-    if (!variant) {
-      throw new ResourceNotFoundException('Product variant', variantId);
+    if (!product) {
+      throw new ResourceNotFoundException('Product', productId);
     }
 
-    return variant;
+    return product;
   }
 
-  private async assertAvailableStock(variantId: string, quantity: number) {
-    const variant = await this.getPurchasableVariant(variantId);
+  private async assertAvailableStock(productId: string, quantity: number) {
+    const product = await this.getProductById(productId);
     const availableStock =
-      (variant.inventory?.stock ?? 0) - (variant.inventory?.reserved ?? 0);
+      (product.inventory?.stock ?? 0) - (product.inventory?.reserved ?? 0);
 
     if (availableStock < quantity) {
-      throw new BadRequestException('Not enough stock for this variant');
+      throw new BadRequestException('Not enough stock for this product');
     }
   }
 
@@ -342,39 +343,21 @@ export class CartsService {
       Awaited<ReturnType<CartsService['getCartById']>>
     >['items'][number],
   ) {
-    const variant = item.variant;
+    const product = item.product;
     const availableStock =
-      (variant.inventory?.stock ?? 0) - (variant.inventory?.reserved ?? 0);
+      (product.inventory?.stock ?? 0) - (product.inventory?.reserved ?? 0);
 
-    if (
-      variant.deletedAt ||
-      !variant.isActive ||
-      variant.product.deletedAt ||
-      variant.product.status !== ProductStatus.ACTIVE
-    ) {
+    if (product.deletedAt || product.status !== ProductStatus.ACTIVE) {
       throw new BadRequestException(
-        `Variant ${variant.id} is no longer available`,
+        `Product ${product.id} is no longer available`,
       );
     }
 
     if (availableStock < item.quantity) {
       throw new BadRequestException(
-        `Not enough stock for variant ${variant.id}`,
+        `Not enough stock for product ${product.id}`,
       );
     }
-  }
-
-  private mapVariantAttributes(
-    attributes: NonNullable<
-      Awaited<ReturnType<CartsService['getCartById']>>
-    >['items'][number]['variant']['attributes'],
-  ) {
-    if (!attributes.length) return undefined;
-
-    return attributes.reduce<Record<string, string>>((mapped, item) => {
-      mapped[item.attributeValue.attribute.name] = item.attributeValue.value;
-      return mapped;
-    }, {});
   }
 
   private async findOrCreateCart(userId: string) {

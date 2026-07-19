@@ -3,9 +3,9 @@ import { User } from '@/domain/entities/identities/User';
 import {
   Address,
   AdministrativeDivision,
-} from '@domain/entities/value-objects/address';
+} from '@domain/value-objects/Address';
 import { VehicleType } from '@domain/entities/enums.enum';
-import { Order } from '@domain/entities/order';
+import { Order } from '@/domain/entities/orders/Order';
 
 export interface ShipperLookupCriteria {
   deliveryAddress: Address;

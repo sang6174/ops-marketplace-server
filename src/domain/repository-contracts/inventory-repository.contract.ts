@@ -1,4 +1,4 @@
-import { Inventory } from '@domain/entities/inventory';
+import { Inventory } from '@domain/entities/products/Inventory';
 import { IBaseRepository } from './base-repository.interface';
 
 export interface IInventoryRepository extends IBaseRepository<Inventory> {

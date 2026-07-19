@@ -148,7 +148,7 @@ export class UsersService {
       return tx.address.create({
         data: {
           userId,
-          addressLine: dto.addressLine,
+          street: dto.street,
           city: dto.city,
           country: dto.country,
           isDefault: dto.isDefault ?? false,
@@ -179,7 +179,7 @@ export class UsersService {
       return tx.address.update({
         where: { id: addressId },
         data: {
-          addressLine: dto.addressLine,
+          street: dto.street,
           city: dto.city,
           country: dto.country,
           isDefault: dto.isDefault,

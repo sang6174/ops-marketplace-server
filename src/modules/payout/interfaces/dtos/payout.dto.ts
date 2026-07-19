@@ -1,5 +1,5 @@
-import { Money } from '@domain/entities/value-objects/money';
-import { PayoutStatus } from '@domain/entities/enums.enum';
+import { Money } from '@domain/value-objects/Money';
+import { PayoutStatusEnum } from '@domain/entities/enums.enum';
 
 export interface CreatePayoutInput {
   userId: string;
@@ -18,7 +18,7 @@ export interface MarkPayoutFailedInput {
 
 export interface GetPayoutsInput {
   userId?: string;
-  status?: PayoutStatus;
+  status?: PayoutStatusEnum;
   fromDate?: Date;
   toDate?: Date;
   limit?: number;
@@ -29,7 +29,7 @@ export interface PayoutResponse {
   id: string;
   userId: string;
   amount: Money;
-  status: PayoutStatus;
+  status: PayoutStatusEnum;
   method: string | null;
   reference: string | null;
   paidAt: Date | null;

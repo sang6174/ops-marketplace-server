@@ -1,4 +1,4 @@
-import { Notification } from '../entities/notification';
+import { Notification } from '../entities/notifies/Notification';
 import { NotificationType, NotificationPriority } from '../entities/enums.enum';
 
 export interface NotificationMessage {

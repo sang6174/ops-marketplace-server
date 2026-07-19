@@ -3,6 +3,7 @@ import {
   NotFoundException,
   BadRequestException,
 } from '@nestjs/common';
+import { Prisma } from '@infrastructure/generated/prisma/client';
 import { PrismaService } from '@infrastructure/prisma/prisma.service';
 import { paginate } from '@common/dtos/pagination.dto';
 import { toPrismaPage } from '@common/utils';
@@ -46,7 +47,7 @@ export class CategoriesService {
         },
         _count: {
           select: {
-            productCategories: true,
+            productCategoryMappings: true,
             children: true,
           },
         },
@@ -76,67 +77,29 @@ export class CategoriesService {
     };
 
     const [items, total] = await this.prisma.$transaction([
-      this.prisma.productCategory.findMany({
+      this.prisma.productCategoryMapping.findMany({
         where,
         ...toPrismaPage(page, limit),
         include: {
           product: {
             include: {
               shop: { select: { id: true, name: true } },
-              images: true,
-              stats: true,
-              variants: {
-                where: { deletedAt: null, isActive: true },
-                include: { inventory: true },
-              },
+               images: true,
+               stats: true,
             },
           },
         },
         orderBy: { product: { createdAt: 'desc' } },
       }),
-      this.prisma.productCategory.count({ where }),
+      this.prisma.productCategoryMapping.count({ where }),
     ]);
 
     return paginate(
-      items.map((item) => item.product),
+      (items as Array<{ product: unknown }>).map((item) => item.product),
       total,
       page,
       limit,
     );
-  }
-
-  async getAttributes(id: string) {
-    await this.getCategoryOrThrow(id);
-
-    const categoryAttributes = await this.prisma.categoryAttribute.findMany({
-      where: { categoryId: id },
-      include: {
-        attribute: {
-          include: {
-            values: {
-              orderBy: { value: 'asc' },
-            },
-          },
-        },
-      },
-      orderBy: {
-        attribute: { name: 'asc' },
-      },
-    });
-
-    return categoryAttributes.map((item) => ({
-      categoryId: item.categoryId,
-      attributeId: item.attributeId,
-      type: item.type,
-      isRequired: item.isRequired,
-      isFilterable: item.isFilterable,
-      attribute: {
-        id: item.attribute.id,
-        name: item.attribute.name,
-        categoryId: item.attribute.categoryId,
-        values: item.attribute.values,
-      },
-    }));
   }
 
   async createCategory(dto: CreateCategoryDto) {
@@ -226,7 +189,7 @@ export class CategoriesService {
       throw new BadRequestException('Cannot delete category with children');
     }
 
-    const used = await this.prisma.productCategory.count({
+    const used = await this.prisma.productCategoryMapping.count({
       where: { categoryId: id },
     });
 

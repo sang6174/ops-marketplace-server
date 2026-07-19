@@ -2,7 +2,7 @@ import {
   AdministrativeDivision,
   Country,
   Address,
-} from '@domain/entities/value-objects/address';
+} from '@domain/value-objects/Address';
 import { IBaseRepository } from './base-repository.interface';
 
 export interface ICountryRepository extends IBaseRepository<Country> {

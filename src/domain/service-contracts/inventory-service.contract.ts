@@ -1,4 +1,4 @@
-import { Inventory } from '../entities/inventory';
+import { Inventory } from '../entities/products/Inventory';
 import {
   RestockInventoryInput,
   OutboundInventoryInput,

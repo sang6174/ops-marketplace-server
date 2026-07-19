@@ -97,6 +97,8 @@ export enum PaymentMethod {
   STRIPE = 'STRIPE',
   MOMO = 'MOMO',
   BANK_TRANSFER = 'BANK_TRANSFER',
+  COD = 'COD',
+  ONLINE = 'ONLINE',
 }
 
 export enum PayoutMethodEnum {

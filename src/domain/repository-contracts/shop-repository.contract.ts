@@ -1,4 +1,4 @@
-import { Shop } from '../entities/shop';
+import { Shop } from '../entities/products/Shop';
 import { IBaseRepository } from './base-repository.interface';
 
 export interface IShopRepository extends IBaseRepository<Shop> {

@@ -1,4 +1,4 @@
-import { Notification } from '../entities/notification';
+import { Notification } from '../entities/notifies/Notification';
 import { IBaseRepository } from './base-repository.interface';
 
 export interface INotificationRepository extends IBaseRepository<Notification> {

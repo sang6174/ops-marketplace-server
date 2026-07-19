@@ -114,10 +114,6 @@ export class ShopsService {
         include: {
           images: true,
           stats: true,
-          variants: {
-            where: { deletedAt: null, isActive: true },
-            include: { inventory: true },
-          },
         },
         orderBy: [{ isFeatured: 'desc' }, { createdAt: 'desc' }],
       }),
@@ -145,27 +141,27 @@ export class ShopsService {
       paidRevenue,
     ] = await this.prisma.$transaction([
       this.prisma.order.count({
-        where: { shopId: shop.id, deletedAt: null },
+        where: { deletedAt: null, items: { some: { shopId: shop.id } } },
       }),
       this.prisma.order.count({
         where: {
-          shopId: shop.id,
           deletedAt: null,
           status: OrderStatus.PENDING,
+          items: { some: { shopId: shop.id } },
         },
       }),
       this.prisma.order.count({
         where: {
-          shopId: shop.id,
           deletedAt: null,
           status: OrderStatus.DELIVERED,
+          items: { some: { shopId: shop.id } },
         },
       }),
       this.prisma.order.count({
         where: {
-          shopId: shop.id,
           deletedAt: null,
           status: OrderStatus.CANCELLED,
+          items: { some: { shopId: shop.id } },
         },
       }),
       this.prisma.product.count({
@@ -180,9 +176,9 @@ export class ShopsService {
       }),
       this.prisma.order.aggregate({
         where: {
-          shopId: shop.id,
           deletedAt: null,
-          paymentStatus: PaymentStatus.SUCCESS,
+          paymentStatus: PaymentStatus.SUCCEEDED,
+          items: { some: { shopId: shop.id } },
         },
         _sum: { totalPrice: true },
       }),

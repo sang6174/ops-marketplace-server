@@ -2,7 +2,7 @@ import {
   Address,
   AdministrativeDivision,
   Country,
-} from '@domain/entities/value-objects/address';
+} from '@domain/value-objects/Address';
 
 export interface IAddressValidationService {
   validate(address: Address): boolean;

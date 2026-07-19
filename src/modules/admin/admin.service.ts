@@ -15,7 +15,6 @@ import {
   UserRole,
 } from '@infrastructure/generated/prisma/enums';
 import {
-  AssignCategoryAttributesDto,
   CreateAdminCategoryDto,
   FeatureProductDto,
   QueryAdminLedgerEntriesDto,
@@ -310,7 +309,7 @@ export class AdminService {
   async deleteCategory(categoryId: string) {
     const [children, used] = await this.prisma.$transaction([
       this.prisma.category.count({ where: { parentId: categoryId } }),
-      this.prisma.productCategory.count({ where: { categoryId } }),
+      this.prisma.productCategoryMapping.count({ where: { categoryId } }),
     ]);
 
     if (children > 0) {
@@ -345,43 +344,6 @@ export class AdminService {
     };
   }
 
-  async assignCategoryAttributes(
-    categoryId: string,
-    dto: AssignCategoryAttributesDto,
-  ) {
-    const category = await this.prisma.category.findUnique({
-      where: { id: categoryId },
-    });
-    if (!category) throw new ResourceNotFoundException('Category', categoryId);
-
-    const attributeIds = dto.attributes.map((item) => item.attributeId);
-    const attributes = await this.prisma.attribute.findMany({
-      where: { id: { in: attributeIds } },
-      select: { id: true },
-    });
-    if (attributes.length !== attributeIds.length) {
-      throw new BadRequestException('One or more attributes are invalid');
-    }
-
-    return this.prisma.$transaction(async (tx) => {
-      await tx.categoryAttribute.deleteMany({ where: { categoryId } });
-      await tx.categoryAttribute.createMany({
-        data: dto.attributes.map((item) => ({
-          categoryId,
-          attributeId: item.attributeId,
-          type: item.type,
-          isRequired: item.isRequired ?? false,
-          isFilterable: item.isFilterable ?? true,
-        })),
-      });
-
-      return tx.category.findUnique({
-        where: { id: categoryId },
-        include: { attribute: true },
-      });
-    });
-  }
-
   async listOrders(dto: QueryAdminOrdersDto) {
     const { page = 1, limit = 20, status, paymentStatus } = dto;
     const where = {
@@ -395,9 +357,7 @@ export class AdminService {
         where,
         ...toPrismaPage(page, limit),
         include: {
-          user: { select: { id: true, email: true, name: true } },
           items: true,
-          address: true,
         },
         orderBy: { createdAt: 'desc' },
       }),
@@ -411,10 +371,8 @@ export class AdminService {
     const order = await this.prisma.order.findUnique({
       where: { id: orderId },
       include: {
-        user: { select: { id: true, email: true, name: true } },
         items: true,
-        address: true,
-        paymentItems: true,
+        payments: true,
       },
     });
 
@@ -540,7 +498,7 @@ export class AdminService {
     const [successfulPayments, paidPayouts, failedPayouts] =
       await this.prisma.$transaction([
         this.prisma.payment.aggregate({
-          where: { status: PaymentStatus.SUCCESS, deletedAt: null },
+          where: { status: PaymentStatus.SUCCEEDED, deletedAt: null },
           _sum: { amount: true },
           _count: true,
         }),

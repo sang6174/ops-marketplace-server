@@ -1,4 +1,4 @@
-import { Product } from '@domain/entities/product';
+import { Product } from '@domain/entities/products/Product';
 import { ProductCategory, ProductStatus } from '@domain/entities/enums.enum';
 import { IBaseRepository } from './base-repository.interface';
 
