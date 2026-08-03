@@ -28,7 +28,7 @@
     "paths": {
       "@/*": ["src/*"],
       "@common/*": ["src/common/*"],
-      "@core/*": ["src/core/*"],
+
       "@domain/*": ["src/domain/*"],
       "@modules/*": ["src/modules/*"],
       "@shared/*": ["src/shared/*"],
