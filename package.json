@@ -97,10 +97,24 @@
     "transform": {
       "^.+\\.(t|j)s$": "ts-jest"
     },
+    "transformIgnorePatterns": [
+      "node_modules/(?!(uuid|@?prisma)/)"
+    ],
     "collectCoverageFrom": [
       "**/*.(t|j)s"
     ],
     "coverageDirectory": "../coverage",
-    "testEnvironment": "node"
+    "testEnvironment": "node",
+    "moduleNameMapper": {
+      "^@/(.*)$": "<rootDir>/$1",
+      "^@common/(.*)$": "<rootDir>/common/$1",
+      "^@domain/(.*)$": "<rootDir>/domain/$1",
+      "^@modules/(.*)$": "<rootDir>/modules/$1",
+      "^@shared/(.*)$": "<rootDir>/shared/$1",
+      "^@core/(.*)$": "<rootDir>/core/$1",
+      "^@configs$": "<rootDir>/configs/index",
+      "^@configs/(.*)$": "<rootDir>/configs/$1",
+      "^@infrastructure/(.*)$": "<rootDir>/infrastructure/$1"
+    }
   }
 }
