@@ -1,8 +1,8 @@
 import {
-  AddItemToCartInput,
+  GetCartInput,
   CartResponse,
 } from '@modules/cart/interfaces/dtos/cart.dto';
 
-export interface IAddItemToCartUseCase {
-  execute(input: AddItemToCartInput): Promise<CartResponse>;
+export interface IGetCartUseCase {
+  execute(input: GetCartInput): Promise<CartResponse>;
 }
