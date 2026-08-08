@@ -1,14 +1,17 @@
 // src/modules/shop/shops.service.ts
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import {
   OrderStatus,
   PaymentStatus,
   ProductStatus,
 } from '@infrastructure/generated/prisma/enums';
 import { PrismaService } from '@infrastructure/prisma/prisma.service';
+import {
+  SHOP_PRISMA_REPOSITORY,
+} from './infrastructure/repositories/shop-prisma.repository';
+import { IShopRepository } from '@domain/repository-contracts/shop-repository.contract';
 import { toPrismaPage } from '@common/utils';
 import {
-  ShopAlreadyExistsException,
   NotShopOwnerException,
   ResourceNotFoundException,
 } from '@common/exceptions';
@@ -19,20 +22,23 @@ import {
   QueryShopsDto,
   QueryShopProductsDto,
 } from './dtos/shop.dto';
+import { CreateShopUseCase } from './applications/use-cases/create-shop.usecase';
+import { GetShopUseCase } from './applications/use-cases/get-shop.usecase';
+import { UpdateShopUseCase } from './applications/use-cases/update-shop.usecase';
 
 @Injectable()
 export class ShopsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    @Inject(SHOP_PRISMA_REPOSITORY)
+    private readonly shopRepo: IShopRepository,
+    private readonly createShopUseCase: CreateShopUseCase,
+    private readonly getShopUseCase: GetShopUseCase,
+    private readonly updateShopUseCase: UpdateShopUseCase,
+  ) {}
 
   async create(ownerId: string, dto: CreateShopDto) {
-    const existing = await this.prisma.shop.findUnique({
-      where: { ownerId },
-    });
-    if (existing) throw new ShopAlreadyExistsException();
-
-    return this.prisma.shop.create({
-      data: { ownerId, name: dto.name, description: dto.description },
-    });
+    return this.createShopUseCase.execute({ ...dto, ownerId } as any);
   }
 
   async createMyShop(ownerId: string, dto: CreateShopDto) {
@@ -40,12 +46,14 @@ export class ShopsService {
   }
 
   async getMyShop(ownerId: string) {
-    const shop = await this.prisma.shop.findFirst({
-      where: { ownerId, deletedAt: null },
-      include: { _count: { select: { products: true, orderItems: true } } },
+    const shops = await this.getShopUseCase.execute({
+      ownerId,
+      includeDeleted: false,
+      limit: 1,
+      offset: 0,
     });
-    if (!shop) throw new ResourceNotFoundException('Shop');
-    return shop;
+    if (!shops.length) throw new ResourceNotFoundException('Shop');
+    return shops[0];
   }
 
   async update(ownerId: string, dto: UpdateShopDto) {
@@ -61,37 +69,15 @@ export class ShopsService {
   }
 
   async findAll(dto: QueryShopsDto) {
-    const { page = 1, limit = 20, search } = dto;
-    const where = {
-      deletedAt: null,
-      ...(search && {
-        name: { contains: search, mode: 'insensitive' as const },
-      }),
-    };
-
-    const [items, total] = await this.prisma.$transaction([
-      this.prisma.shop.findMany({
-        where,
-        ...toPrismaPage(page, limit),
-        orderBy: { createdAt: 'desc' },
-        include: { _count: { select: { products: true } } },
-      }),
-      this.prisma.shop.count({ where }),
-    ]);
-
-    return paginate(items, total, page, limit);
+    return this.getShopUseCase.execute({
+      page: dto.page,
+      limit: dto.limit,
+      search: dto.search,
+    });
   }
 
   async findOne(shopId: string) {
-    const shop = await this.prisma.shop.findFirst({
-      where: { id: shopId, deletedAt: null },
-      include: {
-        owner: { select: { id: true, name: true } },
-        _count: { select: { products: true } },
-      },
-    });
-    if (!shop) throw new ResourceNotFoundException('Shop', shopId);
-    return shop;
+    return this.getShopUseCase.execute(shopId);
   }
 
   async findProducts(shopId: string, dto: QueryShopProductsDto) {
