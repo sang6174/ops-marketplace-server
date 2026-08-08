@@ -1,5 +1,5 @@
-// src/module/order/order.service.ts
 import {
+  Inject,
   Injectable,
   ForbiddenException,
   BadRequestException,
@@ -12,6 +12,21 @@ import {
   ProductStatus,
 } from '@infrastructure/generated/prisma/enums';
 import { PrismaService } from '@infrastructure/prisma/prisma.service';
+import { NestEventBus } from '@infrastructure/event-bus';
+import {
+  OrderCreated,
+  OrderShipped,
+  OrderDelivered,
+  OrderCancelled,
+} from '@domain/events/OrderEvents';
+import { OrderId } from '@domain/value-objects/OrderId';
+import { BuyerId } from '@domain/value-objects/BuyerId';
+import { SellerId } from '@domain/value-objects/SellerId';
+import { Money } from '@domain/value-objects/Money';
+import {
+  ORDER_PRISMA_REPOSITORY,
+} from './infrastructure/repositories/order-prisma.repository';
+import { IOrderRepository } from '@domain/repository-contracts/order-repository.contract';
 import { ResourceNotFoundException } from '@common/exceptions';
 import { paginate } from '@common/dtos/pagination.dto';
 import { toPrismaPage } from '@common/utils';
@@ -21,10 +36,23 @@ import {
   UpdateOrderPaymentStatusDto,
   QueryOrdersDto,
 } from './dtos/order.dto';
+import {
+  CancelOrderUseCase,
+  UpdateOrderStatusUseCase,
+  UpdatePaymentStatusUseCase,
+} from './applications/use-cases';
 
 @Injectable()
 export class OrdersService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly eventBus: NestEventBus,
+    @Inject(ORDER_PRISMA_REPOSITORY)
+    private readonly orderRepo: IOrderRepository,
+    private readonly cancelOrderUseCase: CancelOrderUseCase,
+    private readonly updateOrderStatusUseCase: UpdateOrderStatusUseCase,
+    private readonly updatePaymentStatusUseCase: UpdatePaymentStatusUseCase,
+  ) {}
 
   async createOrdersFromCart(userId: string, dto: CreateOrderDto) {
     const cart = await this.prisma.cart.findFirst({
@@ -54,7 +82,6 @@ export class OrdersService {
       throw new ResourceNotFoundException('Address', dto.addressId);
     }
 
-    // Group cart items by shop
     const grouped = new Map<string, typeof cart.items>();
     for (const item of cart.items) {
       this.assertCartItemCanCheckout(item);
@@ -65,18 +92,15 @@ export class OrdersService {
       grouped.get(shopId)!.push(item);
     }
 
-    // Create one order per shop in transaction
     const checkoutResult = await this.prisma.$transaction(async (tx) => {
       const createdOrders = [];
 
       for (const [shopId, items] of grouped) {
-        // Calculate total price
         const totalPrice = items.reduce(
           (sum, item) => sum + Number(item.price) * item.quantity,
           0,
         );
 
-        // Create order
         const order = await tx.order.create({
           data: {
             buyerId: userId,
@@ -95,7 +119,6 @@ export class OrdersService {
             totalPrice,
             paymentStatus: PaymentStatus.PENDING,
             paymentMethod: dto.paymentMethod ?? PaymentMethod.BANK_TRANSFER,
-
             items: {
               create: items.map((item) => ({
                 shopId,
@@ -110,7 +133,6 @@ export class OrdersService {
           include: { items: true },
         });
 
-        // Deduct inventory
         for (const item of items) {
           await tx.inventory.update({
             where: { productId: item.productId },
@@ -124,7 +146,6 @@ export class OrdersService {
         createdOrders.push(order);
       }
 
-      // Clear cart
       await tx.cartItem.deleteMany({ where: { cartId: cart.id } });
       await tx.cart.update({
         where: { id: cart.id },
@@ -155,6 +176,18 @@ export class OrdersService {
       return { orders: createdOrders, payment };
     });
 
+    for (const order of checkoutResult.orders) {
+      await this.eventBus.publish(
+        new OrderCreated(
+          OrderId.create(order.id),
+          BuyerId.create(order.buyerId),
+          SellerId.create(order.sellerId),
+          Money.fromDecimal(Number(order.totalPrice)),
+          order.createdAt,
+        ),
+      );
+    }
+
     return {
       ...checkoutResult,
       message: 'Orders created successfully from cart',
@@ -175,7 +208,6 @@ export class OrdersService {
   }
 
   async getOrderAsShop(userId: string, orderId: string) {
-    // Get shop owned by user
     const shop = await this.prisma.shop.findFirst({
       where: { ownerId: userId, deletedAt: null },
       select: { id: true },
@@ -274,22 +306,10 @@ export class OrdersService {
       throw new ResourceNotFoundException('Order', orderId);
     }
 
-    const updateData: any = { status: dto.status };
-
-    if (dto.status === OrderStatus.CONFIRMED) {
-      updateData.confirmedAt = new Date();
-    }
-    if (dto.status === OrderStatus.SHIPPED) {
-      updateData.shippedAt = new Date();
-    }
-    if (dto.status === OrderStatus.DELIVERED) {
-      updateData.deliveredAt = new Date();
-    }
-
-    return this.prisma.order.update({
-      where: { id: orderId },
-      data: updateData,
-      include: { items: true },
+    return this.updateOrderStatusUseCase.execute({
+      orderId,
+      status: dto.status as any,
+      userId,
     });
   }
 
@@ -316,12 +336,9 @@ export class OrdersService {
     }
 
     return this.prisma.$transaction(async (tx) => {
-      const updatedOrder = await tx.order.update({
-        where: { id: orderId },
-        data: {
-          paymentStatus: dto.paymentStatus,
-        },
-        include: { items: true },
+      const result = await this.updatePaymentStatusUseCase.execute({
+        orderId,
+        paymentStatus: dto.paymentStatus as any,
       });
 
       await tx.payment.updateMany({
@@ -329,11 +346,11 @@ export class OrdersService {
           items: { some: { orderId } },
         },
         data: {
-          status: dto.paymentStatus,
+          status: dto.paymentStatus as any,
         },
       });
 
-      return updatedOrder;
+      return result;
     });
   }
 
@@ -346,14 +363,13 @@ export class OrdersService {
       throw new ResourceNotFoundException('Order', orderId);
     }
 
-    if (order.status !== OrderStatus.PENDING) {
+    if (order.status !== (OrderStatus.PENDING as any)) {
       throw new BadRequestException(
         'Can only cancel orders with PENDING status',
       );
     }
 
-    return this.prisma.$transaction(async (tx) => {
-      // Release reserved inventory
+    await this.prisma.$transaction(async (tx) => {
       const orderItems = await tx.orderItem.findMany({
         where: { orderId },
       });
@@ -367,14 +383,11 @@ export class OrdersService {
           },
         });
       }
+    });
 
-      // Cancel order
-      return tx.order.update({
-        where: { id: orderId },
-        data: {
-          status: OrderStatus.CANCELLED,
-        },
-      });
+    return this.cancelOrderUseCase.execute({
+      orderId,
+      userId,
     });
   }
 
