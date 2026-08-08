@@ -1,6 +1,7 @@
 // src/modules/auth/auth.service.ts
 import {
   BadRequestException,
+  Inject,
   Injectable,
   Logger,
   UnauthorizedException,
@@ -35,6 +36,10 @@ import {
   TokenPair,
 } from './dtos/auth.dto';
 import { SALT_ROUNDS } from '../../common/constants';
+import {
+  USER_PRISMA_REPOSITORY,
+} from '../user/infrastructure/repositories/user-prisma.repository';
+import { IUserRepository } from '@domain/repository-contracts/user-repository.contract';
 
 @Injectable()
 export class AuthService {
@@ -47,6 +52,8 @@ export class AuthService {
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
     private readonly mailService: MailService,
+    @Inject(USER_PRISMA_REPOSITORY)
+    private readonly userRepo: IUserRepository,
   ) {}
 
   // ===== Register =====
@@ -149,7 +156,7 @@ export class AuthService {
     });
 
     if (!user) {
-      throw new UnauthorizedException('Người dùng không tồn tại');
+      throw new UnauthorizedException('Ng╞░ß╗¥i d├╣ng kh├┤ng tß╗ôn tß║íi');
     }
 
     await this.prisma.session.update({
@@ -178,11 +185,11 @@ export class AuthService {
     });
 
     if (!token || token.used || !token.token.startsWith('verify_')) {
-      throw new BadRequestException('Token xác thực email không hợp lệ');
+      throw new BadRequestException('Token x├íc thß╗▒c email kh├┤ng hß╗úp lß╗ç');
     }
 
     if (new Date() > token.expiresAt) {
-      throw new BadRequestException('Token xác thực email đã hết hạn');
+      throw new BadRequestException('Token x├íc thß╗▒c email ─æ├ú hß║┐t hß║ín');
     }
 
     if (token.user.status === AccountStatus.SUSPENDED) {
@@ -200,7 +207,7 @@ export class AuthService {
       }),
     ]);
 
-    return { message: 'Xác thực email thành công' };
+    return { message: 'X├íc thß╗▒c email th├ánh c├┤ng' };
   }
 
   // ===== Forgot Password =====
@@ -212,7 +219,7 @@ export class AuthService {
 
     if (!user) {
       return {
-        message: 'Nếu email tồn tại, token đặt lại mật khẩu đã được tạo',
+        message: 'Nß║┐u email tß╗ôn tß║íi, token ─æß║╖t lß║íi mß║¡t khß║⌐u ─æ├ú ─æ╞░ß╗úc tß║ío',
       };
     }
 
@@ -233,7 +240,7 @@ export class AuthService {
     await this.mailService.sendPasswordResetEmail(user.email, resetToken);
 
     return {
-      message: 'Nếu email tồn tại, token đặt lại mật khẩu đã được tạo',
+      message: 'Nß║┐u email tß╗ôn tß║íi, token ─æß║╖t lß║íi mß║¡t khß║⌐u ─æ├ú ─æ╞░ß╗úc tß║ío',
       ...(this.isProduction() ? {} : { resetToken }),
     };
   }
@@ -247,11 +254,11 @@ export class AuthService {
     });
 
     if (!token || token.used || !token.token.startsWith('reset_')) {
-      throw new BadRequestException('Token đặt lại mật khẩu không hợp lệ');
+      throw new BadRequestException('Token ─æß║╖t lß║íi mß║¡t khß║⌐u kh├┤ng hß╗úp lß╗ç');
     }
 
     if (new Date() > token.expiresAt) {
-      throw new BadRequestException('Token đặt lại mật khẩu đã hết hạn');
+      throw new BadRequestException('Token ─æß║╖t lß║íi mß║¡t khß║⌐u ─æ├ú hß║┐t hß║ín');
     }
 
     if (token.user.status === AccountStatus.SUSPENDED) {
@@ -275,7 +282,7 @@ export class AuthService {
       }),
     ]);
 
-    return { message: 'Đặt lại mật khẩu thành công' };
+    return { message: '─Éß║╖t lß║íi mß║¡t khß║⌐u th├ánh c├┤ng' };
   }
 
   // ===== Change Password =====
@@ -286,7 +293,7 @@ export class AuthService {
     });
 
     if (!existing?.password) {
-      throw new UnauthorizedException('Người dùng không tồn tại');
+      throw new UnauthorizedException('Ng╞░ß╗¥i d├╣ng kh├┤ng tß╗ôn tß║íi');
     }
 
     const isMatch = await comparePassword(
@@ -294,7 +301,7 @@ export class AuthService {
       existing.password,
     );
     if (!isMatch) {
-      throw new UnauthorizedException('Mật khẩu hiện tại không đúng');
+      throw new UnauthorizedException('Mß║¡t khß║⌐u hiß╗çn tß║íi kh├┤ng ─æ├║ng');
     }
 
     const hashedPassword = await hashPassword(dto.newPassword);
@@ -314,7 +321,7 @@ export class AuthService {
       }),
     ]);
 
-    return { message: 'Đổi mật khẩu thành công' };
+    return { message: '─Éß╗òi mß║¡t khß║⌐u th├ánh c├┤ng' };
   }
 
   getRefreshTokenMaxAgeMs(): number {

@@ -1,6 +1,10 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Inject, Injectable } from '@nestjs/common';
 import { UserRole } from '@infrastructure/generated/prisma/enums';
 import { PrismaService } from '@infrastructure/prisma/prisma.service';
+import {
+  USER_PRISMA_REPOSITORY,
+} from './infrastructure/repositories/user-prisma.repository';
+import { IUserRepository } from '@domain/repository-contracts/user-repository.contract';
 import { exclude } from '@common/utils';
 import {
   ResourceNotFoundException,
@@ -16,7 +20,11 @@ import {
 
 @Injectable()
 export class UsersService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    @Inject(USER_PRISMA_REPOSITORY)
+    private readonly userRepo: IUserRepository,
+  ) {}
 
   async getProfile(userId: string) {
     const user = await this.prisma.user.findFirst({
@@ -59,7 +67,7 @@ export class UsersService {
       }),
     ]);
 
-    return { message: 'Tài khoản đã được xóa' };
+    return { message: 'T├ái khoß║ún ─æ├ú ─æ╞░ß╗úc x├│a' };
   }
 
   async listActiveSessions(userId: string) {
@@ -100,7 +108,7 @@ export class UsersService {
       data: { revokedAt: new Date() },
     });
 
-    return { message: 'Phiên đăng nhập đã được đăng xuất' };
+    return { message: 'Phi├¬n ─æ─âng nhß║¡p ─æ├ú ─æ╞░ß╗úc ─æ─âng xuß║Ñt' };
   }
 
   async becomeSeller(userId: string) {
@@ -111,7 +119,7 @@ export class UsersService {
         data: { userId, role: UserRole.SELLER },
       });
     } catch {
-      throw new ResourceAlreadyExistsException('Role SELLER', 'user này đã có');
+      throw new ResourceAlreadyExistsException('Role SELLER', 'user n├áy ─æ├ú c├│');
     }
 
     await this.prisma.session.updateMany({
@@ -121,7 +129,7 @@ export class UsersService {
 
     return {
       message:
-        'Bạn đã có quyền của người bán. Vui lòng đăng nhập lại để cập nhật quyền và tạo cửa hàng.',
+        'Bß║ín ─æ├ú c├│ quyß╗ün cß╗ºa ng╞░ß╗¥i b├ín. Vui l├▓ng ─æ─âng nhß║¡p lß║íi ─æß╗â cß║¡p nhß║¡t quyß╗ün v├á tß║ío cß╗¡a h├áng.',
     };
   }
 
@@ -196,7 +204,7 @@ export class UsersService {
       data: { deletedAt: new Date() },
     });
 
-    return { message: 'Địa chỉ đã được xóa' };
+    return { message: '─Éß╗ïa chß╗ë ─æ├ú ─æ╞░ß╗úc x├│a' };
   }
 
   async setDefaultAddress(userId: string, addressId: string) {
@@ -279,7 +287,7 @@ export class UsersService {
 
     if (account.isDefault) {
       throw new BadRequestException(
-        'Không thể xóa tài khoản ngân hàng mặc định',
+        'Kh├┤ng thß╗â x├│a t├ái khoß║ún ng├ón h├áng mß║╖c ─æß╗ïnh',
       );
     }
 
@@ -287,7 +295,7 @@ export class UsersService {
       where: { id: accountId },
     });
 
-    return { message: 'Tài khoản ngân hàng đã được xóa' };
+    return { message: 'T├ái khoß║ún ng├ón h├áng ─æ├ú ─æ╞░ß╗úc x├│a' };
   }
 
   async setDefaultBankAccount(userId: string, accountId: string) {
@@ -344,7 +352,7 @@ export class UsersService {
     });
 
     if (!sellerRole) {
-      throw new BadRequestException('Chỉ người bán mới có tài khoản ngân hàng');
+      throw new BadRequestException('Chß╗ë ng╞░ß╗¥i b├ín mß╗¢i c├│ t├ái khoß║ún ng├ón h├áng');
     }
 
     return sellerRole;

@@ -12,6 +12,7 @@ import {
   paymentConfig,
 } from './configs/index';
 import { PrismaModule } from '@infrastructure/prisma/prisma.module';
+import { EventBusModule } from '@infrastructure/event-bus';
 import { CommonModule } from '@common/common.module';
 import { BaseExceptionFilter } from '@common/filters';
 import { TransformInterceptor } from '@common/interceptors/transform.interceptor';
@@ -30,6 +31,7 @@ import { OrdersModule } from './modules/order/orders.module';
 import { PaymentsModule } from './modules/payment/payments.module';
 import { PayoutsModule } from './modules/payout/payouts.module';
 import { LedgerModule } from './modules/ledger/ledger.module';
+import { NotificationsModule } from './modules/notification/notifications.module';
 
 @Module({
   imports: [
@@ -62,6 +64,7 @@ import { LedgerModule } from './modules/ledger/ledger.module';
     }),
 
     PrismaModule,
+    EventBusModule,
     CommonModule,
     AuthModule,
     UsersModule,
@@ -74,6 +77,7 @@ import { LedgerModule } from './modules/ledger/ledger.module';
     PaymentsModule,
     PayoutsModule,
     LedgerModule,
+    NotificationsModule,
   ],
 
   providers: [
