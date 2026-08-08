@@ -1,6 +1,10 @@
 // src/modules/product/products.service.ts
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Inject, Injectable } from '@nestjs/common';
 import { PrismaService } from '@infrastructure/prisma/prisma.service';
+import {
+  PRODUCT_PRISMA_REPOSITORY,
+} from './infrastructure/repositories/product-prisma.repository';
+import { IProductRepository } from '@domain/repository-contracts/product-repository.contract';
 import { ResourceNotFoundException } from '@common/exceptions';
 import { paginate } from '@common/dtos/pagination.dto';
 import { toPrismaPage } from '@common/utils';
@@ -9,6 +13,7 @@ import {
   ProductStatus,
   ProductUnit,
 } from '@infrastructure/generated/prisma/enums';
+import { ProductStatus as DomainProductStatus } from '@domain/entities/enums.enum';
 import {
   BulkUpdateInventoryDto,
   CreateProductDto,
@@ -17,10 +22,18 @@ import {
   SellerUpdateProductDto,
   SetInventoryDto,
 } from './dtos/product.dto';
+import { UpdateProductUseCase } from './applications/use-cases/update-product.usecase';
+import { DeleteProductUseCase } from './applications/use-cases/delete-product.usecase';
 
 @Injectable()
 export class ProductsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    @Inject(PRODUCT_PRISMA_REPOSITORY)
+    private readonly productRepo: IProductRepository,
+    private readonly updateProductUseCase: UpdateProductUseCase,
+    private readonly deleteProductUseCase: DeleteProductUseCase,
+  ) {}
 
   async listProducts(dto: QueryProductsDto) {
     const { page = 1, limit = 20 } = dto;
@@ -179,27 +192,34 @@ export class ProductsService {
   }
 
   async deleteProduct(userId: string, id: string) {
-    const shopId = await this.getShopId(userId);
-    await this.checkProductOwnership(id, shopId);
-
-    await this.prisma.product.update({
-      where: { id },
-      data: { deletedAt: new Date() },
+    await this.deleteProductUseCase.delete({
+      productId: id,
+      sellerId: userId,
     });
 
     return { message: 'Product deleted' };
   }
 
   async publishProduct(userId: string, id: string) {
-    return this.updateProductStatus(userId, id, ProductStatus.ACTIVE);
+    return this.updateProductUseCase.publish({
+      productId: id,
+      sellerId: userId,
+    });
   }
 
   async unpublishProduct(userId: string, id: string) {
-    return this.updateProductStatus(userId, id, ProductStatus.DISCONTINUED);
+    return this.updateProductUseCase.unpublish({
+      productId: id,
+      sellerId: userId,
+    });
   }
 
   async archiveProduct(userId: string, id: string) {
-    return this.updateProductStatus(userId, id, ProductStatus.DISCONTINUED);
+    return this.updateProductUseCase.updateStatus({
+      productId: id,
+      sellerId: userId,
+      status: DomainProductStatus.DISCONTINUED,
+    });
   }
 
   async duplicateProduct(userId: string, id: string) {
@@ -351,21 +371,6 @@ export class ProductsService {
         where: { id: imageId },
         data: { isPrimary: true },
       });
-    });
-  }
-
-  private async updateProductStatus(
-    userId: string,
-    id: string,
-    status: ProductStatus,
-  ) {
-    const shopId = await this.getShopId(userId);
-    await this.checkProductOwnership(id, shopId);
-
-    return this.prisma.product.update({
-      where: { id },
-      data: { status },
-      include: this.productDetailInclude(),
     });
   }
 
