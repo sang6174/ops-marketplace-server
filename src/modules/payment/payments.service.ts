@@ -1,5 +1,5 @@
 // src/module/payment/payments.service.ts
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Inject, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { IncomingHttpHeaders } from 'http';
 import Stripe = require('stripe');
@@ -15,6 +15,10 @@ import {
 } from '@infrastructure/generated/prisma/enums';
 import { Prisma } from '@infrastructure/generated/prisma/client';
 import { PrismaService } from '@infrastructure/prisma/prisma.service';
+import {
+  PAYMENT_PRISMA_REPOSITORY,
+} from './infrastructure/repositories/payment-prisma.repository';
+import { IPaymentRepository } from '@domain/repository-contracts/payment-repository.contract';
 import { ResourceNotFoundException } from '@common/exceptions';
 import { paginate } from '@common/dtos/pagination.dto';
 import { toPrismaPage } from '@common/utils';
@@ -48,6 +52,8 @@ export class PaymentsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly configService: ConfigService,
+    @Inject(PAYMENT_PRISMA_REPOSITORY)
+    private readonly paymentRepo: IPaymentRepository,
   ) {
     const secretKey = this.configService.get<string>(
       'payment.stripe.secretKey',

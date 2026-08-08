@@ -7,11 +7,19 @@ import {
   SellerPayoutsController,
 } from './payouts.controller';
 import { PayoutsService } from './payouts.service';
+import {
+  PayoutPrismaRepository,
+  PAYOUT_PRISMA_REPOSITORY,
+} from './infrastructure/repositories/payout-prisma.repository';
 
 @Module({
   imports: [PrismaModule, LedgerModule],
   controllers: [PayoutsController, SellerPayoutsController],
-  providers: [PayoutsService],
-  exports: [PayoutsService],
+  providers: [
+    PayoutsService,
+    PayoutPrismaRepository,
+    { provide: PAYOUT_PRISMA_REPOSITORY, useClass: PayoutPrismaRepository },
+  ],
+  exports: [PayoutsService, PAYOUT_PRISMA_REPOSITORY],
 })
 export class PayoutsModule {}

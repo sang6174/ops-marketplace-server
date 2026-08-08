@@ -1,5 +1,5 @@
 // src/module/payout/payout.service.ts
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Inject, Injectable } from '@nestjs/common';
 import {
   LedgerAccountType,
   LedgerEntryCategory,
@@ -9,6 +9,10 @@ import {
 } from '@infrastructure/generated/prisma/enums';
 import { Prisma } from '@infrastructure/generated/prisma/client';
 import { PrismaService } from '@infrastructure/prisma/prisma.service';
+import {
+  PAYOUT_PRISMA_REPOSITORY,
+} from './infrastructure/repositories/payout-prisma.repository';
+import { IPayoutRepository } from '@domain/repository-contracts/payout-repository.contract';
 import { ResourceNotFoundException } from '@common/exceptions';
 import { paginate } from '@common/dtos/pagination.dto';
 import { toPrismaPage } from '@common/utils';
@@ -21,7 +25,11 @@ import {
 
 @Injectable()
 export class PayoutsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    @Inject(PAYOUT_PRISMA_REPOSITORY)
+    private readonly payoutRepo: IPayoutRepository,
+  ) {}
 
   async getSellerBalance(sellerId: string) {
     await this.assertSellerShop(sellerId);

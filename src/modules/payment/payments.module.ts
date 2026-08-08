@@ -2,6 +2,7 @@
 import { Module } from '@nestjs/common';
 import { PrismaModule } from '@infrastructure/prisma/prisma.module';
 import { LedgerModule } from '../ledger/ledger.module';
+import { PaymentEventsHandler } from '@infrastructure/event-bus/handlers/payment-events.handler';
 import { PaymentsService } from './payments.service';
 import {
   PaymentsController,
@@ -9,6 +10,10 @@ import {
   RefundsController,
   SellerRefundsController,
 } from './payments.controller';
+import {
+  PaymentPrismaRepository,
+  PAYMENT_PRISMA_REPOSITORY,
+} from './infrastructure/repositories/payment-prisma.repository';
 
 @Module({
   imports: [PrismaModule, LedgerModule],
@@ -18,7 +23,12 @@ import {
     RefundsController,
     SellerRefundsController,
   ],
-  providers: [PaymentsService],
-  exports: [PaymentsService],
+  providers: [
+    PaymentsService,
+    PaymentEventsHandler,
+    PaymentPrismaRepository,
+    { provide: PAYMENT_PRISMA_REPOSITORY, useClass: PaymentPrismaRepository },
+  ],
+  exports: [PaymentsService, PAYMENT_PRISMA_REPOSITORY],
 })
 export class PaymentsModule {}

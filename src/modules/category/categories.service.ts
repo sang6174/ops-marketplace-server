@@ -1,10 +1,15 @@
 import {
+  Inject,
   Injectable,
   NotFoundException,
   BadRequestException,
 } from '@nestjs/common';
 import { Prisma } from '@infrastructure/generated/prisma/client';
 import { PrismaService } from '@infrastructure/prisma/prisma.service';
+import {
+  CATEGORY_PRISMA_REPOSITORY,
+} from './infrastructure/repositories/category-prisma.repository';
+import { ICategoryRepository } from '@domain/repository-contracts/category-repository.contract';
 import { paginate } from '@common/dtos/pagination.dto';
 import { toPrismaPage } from '@common/utils';
 import { ProductStatus } from '@infrastructure/generated/prisma/enums';
@@ -16,7 +21,11 @@ import {
 
 @Injectable()
 export class CategoriesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    @Inject(CATEGORY_PRISMA_REPOSITORY)
+    private readonly categoryRepo: ICategoryRepository,
+  ) {}
 
   async listCategories() {
     const categories = await this.prisma.category.findMany({
