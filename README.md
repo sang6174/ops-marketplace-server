@@ -1,115 +1,124 @@
 # OPS Marketplace Server
 
-Backend API for a multi-vendor marketplace built with NestJS, TypeScript, Prisma, and PostgreSQL. The system supports buyer, seller, and admin workflows including authentication, shop management, product catalog, cart, checkout, orders, Stripe payments, GHN shipping, refunds, ledger accounting, and seller payouts.
-
-## Highlights
-
-- Multi-vendor marketplace backend with buyer, seller, and admin roles.
-- JWT access/refresh authentication with DB-backed session validation.
-- Role-based authorization and seller ownership checks for shop-owned resources.
-- Product catalog with products, variants, inventory, images, categories, and reviews.
-- Cart and checkout flow with per-shop order handling.
-- Stripe Checkout integration for online payments.
-- Idempotency layer for critical write APIs using `Idempotency-Key`.
-- Seller ledger and payout workflows with auditable financial entries.
-- GHN-only shipping integration for fee calculation, order creation, tracking, labels, and webhooks.
-- Consistent API response and error contract through global interceptors and filters.
+Backend API for a multi-vendor marketplace built with **NestJS 11**, **TypeScript**, **Prisma ORM**, and **PostgreSQL**. Supports buyer, seller, and admin workflows including authentication, shop management, product catalog, cart, checkout, Stripe payments, refunds, ledger accounting, and seller payouts.
 
 ## Tech Stack
 
-- NestJS 11
-- TypeScript
-- Prisma ORM
-- PostgreSQL
-- JWT authentication
-- Stripe SDK
-- GHN shipping API
-- Swagger/OpenAPI
-- Yarn
-- ESLint and Prettier
+| Layer         | Technology                                                    |
+| ------------- | ------------------------------------------------------------- |
+| Runtime       | Node.js, TypeScript 6, CommonJS output                        |
+| Framework     | NestJS 11                                                     |
+| ORM           | Prisma 7 (generated to `src/infrastructure/generated/prisma`) |
+| Database      | PostgreSQL via `pg` driver                                    |
+| Auth          | JWT access/refresh tokens, Passport, DB-backed sessions       |
+| Payments      | Stripe SDK 22 (Checkout, webhooks)                            |
+| Validation    | `class-validator` + `class-transformer`                       |
+| Documentation | Swagger/OpenAPI via `@nestjs/swagger`                         |
+| Logging       | `pino` + `nestjs-pino`                                        |
+| Security      | helmet, compression, cookie-parser                            |
+| Testing       | Jest 30, Supertest                                            |
+| Linting       | ESLint 9 + Prettier                                           |
+| Package mgr   | Yarn (Berry, `nodeLinker: node-modules`)                      |
 
 ## Architecture
 
-The codebase is organized by domain modules. Controllers handle routing, guards, role decorators, and DTO validation. Services contain business logic and interact with PostgreSQL through `PrismaService`. Shared infrastructure such as decorators, interceptors, exception filters, config loaders, and Prisma live outside domain modules.
+Single-package monolith (not a monorepo). Organized by domain module under `src/modules/`.
 
-Main layers:
+```
+src/
+  main.ts                ΓÇö Bootstrap, CORS, Swagger, global pipes, versioning
+  app.module.ts          ΓÇö Root module, config registration, global providers
+  common/                ΓÇö Decorators, DTO helpers, interceptors, filters, utilities
+  configs/               ΓÇö Env-driven config loaders (app, jwt, db, mail, payment)
+  infrastructure/
+    prisma/              ΓÇö PrismaService, module, provider, extensions
+    generated/prisma/    ΓÇö Prisma client (auto-generated, do not edit)
+    mail/                ΓÇö Nodemailer service
+  domain/                ΓÇö DDD entities, value-objects, events, repo/service contracts
+    entities/__tests__   ΓÇö All existing unit tests
+  core/                  ΓÇö Auth guards, idempotency, logging, permission checks, retry
+  shared/                ΓÇö Shared DTOs, exceptions
+  modules/               ΓÇö 16 domain modules
+```
 
-- `src/main.ts`: app bootstrap, CORS, middleware, validation, Swagger, versioning.
-- `src/app.module.ts`: root module, config registration, global providers.
-- `src/common/`: decorators, DTO helpers, interceptors, filters, utilities.
-- `src/configs/`: app, JWT, database, payment, and shipping configuration.
-- `src/infrastructure/prisma/`: Prisma service and generated client.
-- `src/modules/`: domain APIs.
-- `prisma/schema.prisma`: database schema and relationships.
+### Path Aliases
 
-## Domain Modules
+| Alias               | Maps to                |
+| ------------------- | ---------------------- |
+| `@/*`               | `src/*`                |
+| `@common/*`         | `src/common/*`         |
+| `@modules/*`        | `src/modules/*`        |
+| `@infrastructure/*` | `src/infrastructure/*` |
+| `@domain/*`         | `src/domain/*`         |
+| `@configs/*`        | `src/configs/*`        |
+| `@shared/*`         | `src/shared/*`         |
+| `@core/*`           | `src/core/*`           |
 
-- `auth`: register, login, refresh token, logout, password reset, JWT strategies.
-- `user`: user profile, addresses, bank accounts.
-- `shop`: public shops, seller shop operations, admin shop actions.
-- `product`: products, variants, inventory, images, categories, seller product operations.
-- `cart`: cart items, coupon application, checkout.
-- `order`: buyer orders, seller order views, admin order operations.
-- `payment`: Stripe payment, COD payment, refunds, payment webhooks.
-- `shipping`: GHN fee calculation, create shipping, tracking, labels, shipping webhook.
-- `ledger`: ledger accounts, ledger entries, balance views.
-- `payout`: seller balance, payout requests, admin payout processing.
-- `admin`: admin user/shop/category/order/product/ledger/payout APIs.
+### Global Providers
+
+- `BaseExceptionFilter` ΓÇö Consistent error response shape
+- `LoggingInterceptor` ΓÇö Request/response logging via pino
+- `TransformInterceptor` ΓÇö Normalized success response envelope
+- `IdempotencyInterceptor` ΓÇö Idempotency-Key support on critical writes
+- `RolesAndPermissionsGuard` ΓÇö Role-based and permission-based access control
+
+## Domain Modules (16)
+
+| Module         | Responsibility                                                                                      |
+| -------------- | --------------------------------------------------------------------------------------------------- |
+| `auth`         | Register, login, refresh token, logout, password reset, JWT strategies                              |
+| `user`         | User profile, addresses, bank accounts                                                              |
+| `address`      | Address CRUD for users                                                                              |
+| `shop`         | Public shops, seller shop operations, admin shop actions                                            |
+| `product`      | Products, variants, inventory, images, categories, seller product ops                               |
+| `category`     | Product category management                                                                         |
+| `inventory`    | Stock tracking per variant                                                                          |
+| `cart`         | Cart items, coupon application, checkout                                                            |
+| `order`        | Buyer orders, seller order views, admin order operations                                            |
+| `payment`      | Stripe Checkout, COD payment, refunds, payment webhooks                                             |
+| `shipment`     | Internal shipment management: create, assign shipper, track, update status, cancel, list, dashboard |
+| `ledger`       | Ledger accounts, ledger entries, balance views                                                      |
+| `payout`       | Seller balance, payout requests, admin payout processing                                            |
+| `notification` | In-app notifications                                                                                |
+| `bank-account` | Seller bank account management                                                                      |
+| `admin`        | Admin user/shop/category/order/product/ledger/payout APIs                                           |
 
 ## Core Flows
 
 ### Authentication
 
-Users authenticate with email/password. The backend issues access and refresh tokens and stores sessions in the database. Access token validation checks both JWT signature and active session state, allowing logout/revoke behavior.
+Users authenticate with email/password. Backend issues access and refresh tokens, stores sessions in the `Session` table. Access token validation checks both JWT signature and active session state, enabling logout and revoke behavior.
 
 ### Marketplace Checkout
 
-Buyers add product variants to cart and checkout into marketplace orders. Orders are linked to `userId`, `shopId`, `addressId`, `paymentStatus`, and lifecycle `status`. Seller APIs enforce ownership by resolving the seller shop from the authenticated user.
+Buyers add product variants to cart and checkout into marketplace orders. Orders link `userId`, `shopId`, `addressId`, `paymentStatus`, and lifecycle `status`. Seller APIs enforce ownership by resolving the seller shop from the authenticated user.
 
 ### Stripe Payment
 
-Online payment uses Stripe Checkout:
-
-1. Buyer calls `POST /api/v1/payments/initiate`.
-2. Backend validates pending orders.
-3. Backend creates or reuses a pending payment.
-4. Backend creates a Stripe Checkout Session.
-5. Stripe session id is saved as `providerRef`.
-6. Client receives `checkoutUrl`.
-7. Stripe webhook updates payment/order status after signature verification.
-8. Successful payments credit seller ledger balances.
+1. Buyer calls `POST /api/v1/payments/initiate`
+2. Backend validates pending orders, creates/reuses a pending payment
+3. Backend creates a Stripe Checkout Session, saves `session.id` as `providerRef`
+4. Client receives `checkoutUrl` and redirects to Stripe
+5. Stripe webhook (`POST /api/v1/webhooks/stripe`) updates payment/order status after signature verification
+6. Successful payments credit seller ledger balances
 
 ### Idempotency
 
-Critical write APIs support `Idempotency-Key`. The backend stores a request fingerprint, processing status, and final response. Repeated requests with the same key and payload replay the original response; repeated requests with a different payload are rejected.
-
-This protects flows such as payment creation, ledger updates, payouts, shipping creation, and other write-heavy operations from duplicate retries.
+Critical write APIs support `Idempotency-Key` header. Backend stores request fingerprint, processing status, and final response. Repeated requests with the same key and payload replay the original response; different payloads are rejected. Protects payment creation, ledger updates, payouts, shipping creation, and other write-heavy operations.
 
 ### Ledger and Payout
 
-Seller balances are tracked through ledger accounts and ledger entries instead of blind balance mutations. Payment success creates credits. Refunds and payouts create debits. Payouts are requested by sellers and processed by admins.
-
-### GHN Shipping
-
-Shipping is GHN-only. The backend calculates shipping fees, builds GHN create-order payloads from marketplace orders, stores tracking information, supports label retrieval and tracking, and handles GHN webhook status updates.
-
-The current address schema does not store all GHN-specific fields, so create shipping accepts fields such as `toPhone`, `toWardCode`, `toDistrictId`, package dimensions, service type, and required note.
+Seller balances tracked via `LedgerAccount` / `LedgerEntry` (not blind mutations). Payment success creates credits; refunds and payouts create debits. Sellers request payouts; admins process them.
 
 ## API Documentation
 
-In non-production environments, Swagger is available at:
+**Swagger** (non-production only): `http://localhost:<PORT>/api/docs`
 
-```text
-http://localhost:<PORT>/api/docs
-```
+**URI versioning**: `/api/v1`
 
-The API uses URI versioning:
+### Response Contract
 
-```text
-/api/v1
-```
-
-Success responses are normalized:
+Success:
 
 ```json
 {
@@ -121,7 +130,7 @@ Success responses are normalized:
 }
 ```
 
-Error responses are normalized:
+Error:
 
 ```json
 {
@@ -134,9 +143,52 @@ Error responses are normalized:
 }
 ```
 
+### Key Endpoints
+
+**Auth**
+
+- `POST /api/v1/auth/register`
+- `POST /api/v1/auth/login`
+- `POST /api/v1/auth/refresh`
+- `POST /api/v1/auth/logout`
+
+**Payments**
+
+- `POST /api/v1/payments/initiate`
+- `GET /api/v1/payments`
+- `GET /api/v1/payments/:id`
+- `POST /api/v1/webhooks/stripe`
+
+**Payout (seller)**
+
+- `GET /api/v1/seller/balance`
+- `GET /api/v1/seller/balance/history`
+- `POST /api/v1/seller/payouts/request`
+- `GET /api/v1/seller/payouts`
+
+**Admin**
+
+- `GET /api/v1/admin/users`
+- `GET /api/v1/admin/shops`
+- `GET /api/v1/admin/orders`
+- `GET /api/v1/admin/ledger/accounts`
+- `GET /api/v1/admin/payouts`
+
+## Data Model
+
+| Domain       | Models                                                       |
+| ------------ | ------------------------------------------------------------ |
+| Identity     | `User`, `Session`, `UserRoleMapping`, `PasswordReset`        |
+| Marketplace  | `Shop`, `Product`, `ProductVariant`, `Inventory`, `Category` |
+| Cart & Order | `Cart`, `CartItem`, `Order`, `OrderItem`                     |
+| Payments     | `Payment`, `PaymentItem`, `Refund`                           |
+| Finance      | `LedgerAccount`, `LedgerEntry`, `Payout`, `BankAccount`      |
+| Engagement   | `Review`, `Notification`, `ChatRoom`, `Message`              |
+| Reliability  | `IdempotencyRequest`                                         |
+
 ## Environment Variables
 
-Create a `.env` file in the server directory.
+Create a `.env` in the project root:
 
 ```env
 NODE_ENV=development
@@ -156,12 +208,6 @@ STRIPE_WEBHOOK_SECRET=whsec_...
 STRIPE_SUCCESS_URL=http://localhost:3000/payment/success
 STRIPE_CANCEL_URL=http://localhost:3000/payment/cancel
 
-GHN_TOKEN=your_ghn_token
-GHN_SHOP_ID=your_ghn_shop_id
-GHN_BASE_URL=https://dev-online-gateway.ghn.vn/shiip/public-api/v2
-GHN_WEBHOOK_SECRET=
-GHN_WEBHOOK_TOKEN=
-
 MAIL_HOST=smtp.example.com
 MAIL_PORT=587
 MAIL_SECURE=false
@@ -174,128 +220,59 @@ Do not commit `.env` or provider secrets.
 
 ## Setup
 
-Install dependencies:
-
 ```bash
+# Install dependencies
 yarn install
-```
 
-Generate Prisma client:
+# Start PostgreSQL (Docker)
+docker compose -f prisma/docker-compose.yml up -d
 
-```bash
+# Generate Prisma client and apply migrations
 yarn prisma generate
-```
-
-Run migrations:
-
-```bash
 yarn prisma migrate deploy
-```
 
-For local development migrations:
-
-```bash
-yarn prisma migrate dev
-```
-
-Start the app:
-
-```bash
+# Start dev server (watch mode)
 yarn start:dev
 ```
 
-Build:
+## Scripts
 
-```bash
-yarn build
-```
+| Command                      | Description                      |
+| ---------------------------- | -------------------------------- |
+| `yarn start`                 | Start NestJS                     |
+| `yarn start:dev`             | Watch-mode dev server            |
+| `yarn start:prod`            | Run compiled production build    |
+| `yarn build`                 | Compile TypeScript ΓåÆ `dist/`     |
+| `yarn lint`                  | ESLint with auto-fix             |
+| `yarn format`                | Prettier on `src/` + `test/`     |
+| `yarn test`                  | Jest unit tests (`src/`)         |
+| `yarn test:e2e`              | E2E tests (requires setup)       |
+| `yarn prisma generate`       | Regenerate Prisma client         |
+| `yarn prisma migrate deploy` | Apply migrations in CI/prod      |
+| `yarn prisma migrate dev`    | Create and apply local migration |
 
-Run production build:
+> **Note:** E2E test infra is not set up ΓÇö `test/jest-e2e.json` and `test/` directory are absent.
 
-```bash
-yarn start:prod
-```
+## Performance & Security
 
-## Useful Scripts
-
-- `yarn start`: start NestJS.
-- `yarn start:dev`: start in watch mode.
-- `yarn start:prod`: run compiled production build.
-- `yarn build`: compile TypeScript.
-- `yarn lint`: run ESLint with auto-fix.
-- `yarn test`: run Jest tests.
-- `yarn test:e2e`: run e2e tests.
-- `yarn prettier --write <paths>`: format selected files.
-- `yarn prisma generate`: generate Prisma client.
-- `yarn prisma migrate deploy`: apply migrations.
-- `yarn prisma migrate dev`: create/apply local migration.
-
-## Important API Areas
-
-Authentication:
-
-- `POST /api/v1/auth/register`
-- `POST /api/v1/auth/login`
-- `POST /api/v1/auth/refresh`
-- `POST /api/v1/auth/logout`
-
-Payments:
-
-- `POST /api/v1/payments/initiate`
-- `GET /api/v1/payments`
-- `GET /api/v1/payments/:id`
-- `POST /api/v1/webhooks/stripe`
-
-Shipping:
-
-- `GET /api/v1/seller/shipping/fees`
-- `POST /api/v1/seller/shipping/create`
-- `GET /api/v1/seller/shipping/track/:trackingCode`
-- `POST /api/v1/seller/shipping/print-label`
-- `POST /api/v1/webhooks/shipping/ghn`
-
-Seller payout:
-
-- `GET /api/v1/seller/balance`
-- `GET /api/v1/seller/balance/history`
-- `POST /api/v1/seller/payouts/request`
-- `GET /api/v1/seller/payouts`
-
-Admin:
-
-- `GET /api/v1/admin/users`
-- `GET /api/v1/admin/shops`
-- `GET /api/v1/admin/orders`
-- `GET /api/v1/admin/ledger/accounts`
-- `GET /api/v1/admin/payouts`
-
-## Data Model Overview
-
-Important models:
-
-- Identity: `User`, `Session`, `UserRoleMapping`, `PasswordReset`.
-- Marketplace: `Shop`, `Product`, `ProductVariant`, `Inventory`, `Category`.
-- Cart and orders: `Cart`, `CartItem`, `Order`, `OrderItem`.
-- Payments: `Payment`, `PaymentItem`, `Refund`.
-- Shipping: `Shipping`.
-- Finance: `LedgerAccount`, `LedgerEntry`, `Payout`, `BankAccount`.
-- Engagement: `Review`, `Notification`, `ChatRoom`, `Message`.
-- Reliability: `IdempotencyRequest`.
+- **Idempotency-Key** header on critical writes; responses include `Idempotency-Replayed` header
+- **Rate limiting** via configurable middleware
+- **Helmet** security headers
+- **Compression** with `compression` middleware
+- **Structured logging** with pino
+- **Validation pipe** with whitelisting and transform
 
 ## Verification Notes
 
-Implemented and verified during development:
+- Stripe secret key connectivity verified
+- Stripe Checkout Session creation with valid test amount verified
+- Full TypeScript build passes (`yarn build`)
+- Full webhook verification requires valid provider webhook secrets and reachable callback URLs
 
-- Stripe secret key connectivity.
-- Stripe Checkout Session creation with valid test amount.
-- GHN fee calculation through backend with valid GHN credentials.
-- TypeScript build with `yarn build`.
+## Development
 
-Full webhook verification requires valid provider webhook secrets and reachable callback URLs.
+### Git
 
-## Additional Documentation
-
-- `docs/codex-guidelines.md`: backend coding guidelines.
-- `docs/review-architecture.README`: high-level architecture review.
-- `docs/review-source-code.README`: API and source-code flow review.
-
+- `.gitignore` excludes `.vscode/`, `.yarn/`, `.env`, `prisma/seed.ts`
+- No CI workflows or pre-commit hooks yet
+- Seeds intentionally not committed
